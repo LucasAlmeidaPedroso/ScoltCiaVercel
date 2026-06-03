@@ -69,13 +69,20 @@ from pets
 left join tutors on tutors.id = pets.tutor_id;
 
 insert into tutors (full_name, phone, whatsapp, email, address, emergency_contact)
-values ('Mariana Alves', '11984130296', '11984130296', 'mariana@email.com', 'Rua das Flores, 120', 'Carina - 11977552805')
-on conflict do nothing;
+select 'Mariana Alves', '11984130296', '11984130296', 'mariana@email.com', 'Rua das Flores, 120', 'Carina - 11977552805'
+where not exists (
+  select 1 from tutors where email = 'mariana@email.com'
+);
 
 insert into pets (tutor_id, name, breed, size, sex)
 select id, 'Luna', 'Golden Retriever', 'Grande', 'Femea'
 from tutors
 where full_name = 'Mariana Alves'
+and not exists (
+  select 1 from pets
+  where pets.name = 'Luna'
+  and pets.tutor_id = tutors.id
+)
 limit 1
 on conflict do nothing;
 
