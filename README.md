@@ -63,3 +63,19 @@ lucasalmeidapedroso@gmail.com
 ```
 
 Depois do primeiro acesso, use o painel para cadastrar outros usuarios da equipe.
+
+## Login com Google
+
+Para habilitar o botao **Entrar com Google**:
+
+1. No Supabase, abra **Authentication > Providers**.
+2. Ative o provider **Google**.
+3. Configure o Client ID e Client Secret criados no Google Cloud.
+4. Em **Authentication > URL Configuration**, adicione as URLs de redirect:
+
+```txt
+http://localhost:3000/admin
+https://seu-dominio-vercel.vercel.app/admin
+```
+
+O Google so libera o painel se o e-mail autenticado tambem existir em `app_users` com role `admin`.

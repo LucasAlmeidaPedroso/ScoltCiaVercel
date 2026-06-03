@@ -60,6 +60,36 @@ export async function verifyAdminCredentials(email: string, password: string) {
   } satisfies AppUser;
 }
 
+export async function verifyAdminEmail(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!hasSupabaseEnv()) {
+    return normalizedEmail === fallbackAdmin.email ? fallbackAdmin : null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id,name,email,role,is_active,created_at")
+    .eq("email", normalizedEmail)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !data || data.role !== "admin") return null;
+  return data satisfies AppUser;
+}
+
+export async function verifyAdminAccessToken(accessToken: string) {
+  if (!hasSupabaseEnv() || !accessToken) return null;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  const email = data.user?.email;
+
+  if (error || !email) return null;
+  return verifyAdminEmail(email);
+}
+
 export async function listUsers(): Promise<AppUser[]> {
   if (!hasSupabaseEnv()) return [fallbackAdmin];
 
@@ -108,6 +138,13 @@ export async function createUser(payload: UserPayload): Promise<AppUser> {
 }
 
 export async function requireAdmin(request: Request) {
+  const authorization = request.headers.get("authorization") || "";
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+
+  if (accessToken) {
+    return verifyAdminAccessToken(accessToken);
+  }
+
   const email = request.headers.get("x-admin-email") || "";
   const password = request.headers.get("x-admin-password") || "";
   const admin = await verifyAdminCredentials(email, password);

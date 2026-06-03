@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
-import { Bell, CalendarCheck, Check, ChevronRight, Clock, CreditCard, Home, Hotel, LayoutDashboard, PawPrint, Scissors, Settings, UserRound, Users, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, CalendarCheck, Check, ChevronRight, Clock, CreditCard, Eye, EyeOff, Gamepad2, Heart, Hotel, LayoutDashboard, Lock, Mail, PawPrint, Scissors, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppUser, DaycareSettings, PetOption, Reservation, UserPayload } from "@/lib/types";
 
 type Props = {
@@ -32,6 +33,9 @@ function activeCapacityCount(reservations: Reservation[]) {
 export function AdminPanel({ pets, reservations, settings }: Props) {
   const [email, setEmail] = useState("lucasalmeidapedroso@gmail.com");
   const [password, setPassword] = useState("");
+  const [accessToken, setAccessToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
@@ -49,10 +53,49 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   function adminHeaders() {
     return {
       "Content-Type": "application/json",
-      "x-admin-email": email,
-      "x-admin-password": password
+      ...(accessToken ? {
+        "Authorization": `Bearer ${accessToken}`
+      } : {
+        "x-admin-email": email,
+        "x-admin-password": password
+      })
     };
   }
+
+  async function unlockWithToken(token: string) {
+    const response = await fetch("/api/admin/google-login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    });
+
+    setUnlocked(response.ok);
+
+    if (response.ok) {
+      setAccessToken(token);
+      const usersResponse = await fetch("/api/admin/users", {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (usersResponse.ok) setUsers(await usersResponse.json());
+    } else {
+      setLoginMessage("Seu Google entrou, mas esse e-mail nao esta cadastrado como admin.");
+    }
+  }
+
+  useEffect(() => {
+    const supabase = getSupabaseBrowser();
+    if (!supabase) return;
+
+    supabase.auth.getSession().then(({ data }) => {
+      const token = data.session?.access_token;
+      if (token) void unlockWithToken(token);
+    });
+  }, []);
 
   function countByStatus(status: string) {
     if (status === "all") return items.length;
@@ -72,11 +115,29 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     setUnlocked(response.ok);
 
     if (response.ok) {
+      setAccessToken("");
       const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
       if (usersResponse.ok) setUsers(await usersResponse.json());
     } else {
       setLoginMessage("Login nao autorizado. Confira e-mail, senha e se o SQL do Supabase foi rodado.");
     }
+  }
+
+  async function googleLogin() {
+    setLoginMessage("");
+    const supabase = getSupabaseBrowser();
+
+    if (!supabase) {
+      setLoginMessage("Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY para usar Google.");
+      return;
+    }
+
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/admin`
+      }
+    });
   }
 
   async function setStatus(id: number, action: "approve" | "reject") {
@@ -127,17 +188,44 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   if (!unlocked) {
     return (
-      <form className="form-card form-grid admin-login-card" onSubmit={login}>
-        <h2 className="span-2">Entrar no admin</h2>
-        <label className="span-2">E-mail
-          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <label className="span-2">Senha
-          <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
-        <button className="primary-button span-2">Entrar</button>
-        {loginMessage && <strong className="span-2 form-warning">{loginMessage}</strong>}
-      </form>
+      <div className="login-showcase">
+        <section className="login-visual">
+          <div className="login-logo">
+            <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={74} height={74} />
+            <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
+          </div>
+          <div className="login-copy">
+            <h1>Cuidado, carinho e diversao</h1>
+            <p>Um lugar seguro e cheio de amor para o seu melhor amigo.</p>
+          </div>
+          <Image className="login-dogs" src="/img/hero-dachshund-akita.png" alt="Cachorros na creche" width={560} height={420} priority />
+          <div className="login-benefits">
+            <div><span><ShieldCheck size={28} /></span><strong>Ambiente seguro</strong><p>Rotina acompanhada</p></div>
+            <div><span><Heart size={28} /></span><strong>Muito carinho</strong><p>Equipe apaixonada por caes</p></div>
+            <div><span><Gamepad2 size={28} /></span><strong>Diversao garantida</strong><p>Atividades diarias</p></div>
+          </div>
+        </section>
+
+        <form className="login-form-panel" onSubmit={login}>
+          <h2>Bem-vindo de volta!</h2>
+          <p>Faca login para acessar o sistema de gestao.</p>
+          <label>E-mail
+            <div className="input-icon"><Mail size={18} /><input type="email" placeholder="seu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+          </label>
+          <label>Senha
+            <div className="input-icon"><Lock size={18} /><input type={showPassword ? "text" : "password"} placeholder="Digite sua senha" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
+          </label>
+          <div className="login-row">
+            <label className="remember-row"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />Lembrar de mim</label>
+            <a href="mailto:lucasalmeidapedroso@gmail.com">Esqueci minha senha</a>
+          </div>
+          <button className="login-submit" type="submit"><Lock size={18} />Entrar</button>
+          <div className="login-divider"><span></span>ou<span></span></div>
+          <button className="google-button" type="button" onClick={googleLogin}><strong>G</strong>Entrar com Google</button>
+          {loginMessage && <strong className="form-warning">{loginMessage}</strong>}
+          <p className="login-help">Ainda nao tem uma conta? <a href="mailto:lucasalmeidapedroso@gmail.com">Fale com o administrador</a></p>
+        </form>
+      </div>
     );
   }
 
@@ -246,7 +334,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
         <section id="nova-reserva" className="admin-card">
           <h2>Cadastrar reserva pelo admin</h2>
-          <ReservationForm pets={pets} reservations={items} settings={{ max_capacity: maxCapacity }} admin adminAuth={{ email, password }} />
+          <ReservationForm pets={pets} reservations={items} settings={{ max_capacity: maxCapacity }} admin adminAuth={{ email, password, accessToken }} />
         </section>
 
         <section className="admin-card">
