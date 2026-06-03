@@ -307,6 +307,13 @@ input, select, textarea {
   background: #fff;
 }
 textarea { resize: vertical; }
+.form-warning {
+  color: #b42318;
+  background: #fff0ee;
+  border: 1px solid #ffd4cf;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
 
 .admin-list {
   display: grid;

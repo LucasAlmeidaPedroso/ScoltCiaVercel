@@ -13,6 +13,7 @@ export function AdminPanel({ pets, reservations }: Props) {
   const [email, setEmail] = useState("lucasalmeidapedroso@gmail.com");
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(false);
+  const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
@@ -29,6 +30,8 @@ export function AdminPanel({ pets, reservations }: Props) {
 
   async function login(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setLoginMessage("");
+
     const response = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -39,6 +42,8 @@ export function AdminPanel({ pets, reservations }: Props) {
     if (response.ok) {
       const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
       if (usersResponse.ok) setUsers(await usersResponse.json());
+    } else {
+      setLoginMessage("Login nao autorizado. Confira e-mail, senha e se o SQL do Supabase foi rodado.");
     }
   }
 
@@ -86,6 +91,7 @@ export function AdminPanel({ pets, reservations }: Props) {
           <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
         </label>
         <button className="primary-button span-2">Entrar</button>
+        {loginMessage && <strong className="span-2 form-warning">{loginMessage}</strong>}
       </form>
     );
   }
