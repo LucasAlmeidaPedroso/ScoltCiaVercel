@@ -56,6 +56,13 @@ create table if not exists reservations (
   created_at timestamptz not null default now()
 );
 
+create table if not exists daycare_settings (
+  id bigint primary key default 1,
+  max_capacity integer not null default 20,
+  updated_at timestamptz not null default now(),
+  constraint one_daycare_settings_row check (id = 1)
+);
+
 create or replace view pet_options as
 select
   pets.id,
@@ -101,3 +108,7 @@ on conflict (email) do update set
   password_salt = excluded.password_salt,
   password_hash = excluded.password_hash,
   is_active = true;
+
+insert into daycare_settings (id, max_capacity)
+values (1, 20)
+on conflict (id) do nothing;

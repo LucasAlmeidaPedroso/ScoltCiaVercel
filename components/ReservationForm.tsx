@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { PetOption } from "@/lib/types";
+import type { DaycareSettings, PetOption, Reservation } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
+  reservations?: Reservation[];
+  settings?: DaycareSettings;
   admin?: boolean;
   adminAuth?: {
     email: string;
@@ -27,10 +29,17 @@ const initial = {
   notes: ""
 };
 
-export function ReservationForm({ pets, admin = false, adminAuth }: Props) {
+const activeStatuses = ["Aguardando aprovacao", "Pendente", "Confirmada", "Em andamento"];
+
+export function ReservationForm({ pets, reservations = [], settings = { max_capacity: 20 }, admin = false, adminAuth }: Props) {
   const [form, setForm] = useState(initial);
   const [message, setMessage] = useState("");
   const petMap = useMemo(() => new Map(pets.map((pet) => [String(pet.id), pet])), [pets]);
+  const selectedDateCount = useMemo(() => {
+    if (!form.entry_date) return 0;
+    return reservations.filter((reservation) => reservation.entry_date === form.entry_date && activeStatuses.includes(reservation.status)).length;
+  }, [form.entry_date, reservations]);
+  const isFull = Boolean(form.entry_date) && selectedDateCount >= settings.max_capacity;
 
   function update(name: string, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -58,6 +67,11 @@ export function ReservationForm({ pets, admin = false, adminAuth }: Props) {
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+
+    if (!admin && isFull) {
+      setMessage("Data sem vagas no momento. Escolha outro dia ou fale conosco pelo WhatsApp.");
+      return;
+    }
 
     const response = await fetch(admin ? "/api/admin/reservations" : "/api/reservations", {
       method: "POST",
@@ -101,10 +115,16 @@ export function ReservationForm({ pets, admin = false, adminAuth }: Props) {
       <label>Porte<select value={form.size} onChange={(event) => update("size", event.target.value)}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
       <label>Servico<select value={form.service} onChange={(event) => update("service", event.target.value)}><option>Day Care</option><option>Hospedagem</option><option>Banho e tosa</option><option>Cuidados especiais</option></select></label>
       <label>Data de entrada<input required type="date" value={form.entry_date} onChange={(event) => update("entry_date", event.target.value)} /></label>
+      {form.entry_date && !admin && (
+        <div className={`capacity-note ${isFull ? "is-full" : ""}`}>
+          <strong>{isFull ? "Lotado para esta data" : `${selectedDateCount} de ${settings.max_capacity} vagas ocupadas`}</strong>
+          <span>{isFull ? "Escolha outra data para enviar a reserva." : `${settings.max_capacity - selectedDateCount} vaga(s) disponivel(is).`}</span>
+        </div>
+      )}
       <label>Data de saida<input type="date" value={form.exit_date} onChange={(event) => update("exit_date", event.target.value)} /></label>
       <label>Horario previsto<input type="time" value={form.expected_time} onChange={(event) => update("expected_time", event.target.value)} /></label>
       <label className="span-2">Observacoes<textarea rows={4} value={form.notes} onChange={(event) => update("notes", event.target.value)} /></label>
-      <button className="primary-button span-2" type="submit">{admin ? "Cadastrar e confirmar" : "Enviar para aprovacao"}</button>
+      <button className="primary-button span-2" type="submit" disabled={!admin && isFull}>{admin ? "Cadastrar e confirmar" : "Enviar para aprovacao"}</button>
       {message && <strong className="span-2">{message}</strong>}
     </form>
   );

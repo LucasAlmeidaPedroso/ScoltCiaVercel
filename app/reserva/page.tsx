@@ -1,8 +1,8 @@
 import { ReservationForm } from "@/components/ReservationForm";
-import { listPets } from "@/lib/data";
+import { getDaycareSettings, listPets, listReservations } from "@/lib/data";
 
 export default async function ReservaPage() {
-  const pets = await listPets();
+  const [pets, reservations, settings] = await Promise.all([listPets(), listReservations(), getDaycareSettings()]);
 
   return (
     <main>
@@ -15,7 +15,7 @@ export default async function ReservaPage() {
       </section>
       <section className="section">
         <div className="form-shell">
-          <ReservationForm pets={pets} />
+          <ReservationForm pets={pets} reservations={reservations} settings={settings} />
         </div>
       </section>
     </main>

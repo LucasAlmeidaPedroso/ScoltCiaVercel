@@ -44,3 +44,7 @@ export type UserPayload = {
   password: string;
   role: "admin" | "equipe" | "tutor";
 };
+
+export type DaycareSettings = {
+  max_capacity: number;
+};
