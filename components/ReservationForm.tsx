@@ -6,6 +6,10 @@ import type { PetOption } from "@/lib/types";
 type Props = {
   pets: PetOption[];
   admin?: boolean;
+  adminAuth?: {
+    email: string;
+    password: string;
+  };
 };
 
 const initial = {
@@ -23,7 +27,7 @@ const initial = {
   notes: ""
 };
 
-export function ReservationForm({ pets, admin = false }: Props) {
+export function ReservationForm({ pets, admin = false, adminAuth }: Props) {
   const [form, setForm] = useState(initial);
   const [message, setMessage] = useState("");
   const petMap = useMemo(() => new Map(pets.map((pet) => [String(pet.id), pet])), [pets]);
@@ -57,7 +61,13 @@ export function ReservationForm({ pets, admin = false }: Props) {
 
     const response = await fetch(admin ? "/api/admin/reservations" : "/api/reservations", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(admin && adminAuth ? {
+          "x-admin-email": adminAuth.email,
+          "x-admin-password": adminAuth.password
+        } : {})
+      },
       body: JSON.stringify({
         ...form,
         pet_id: form.pet_id ? Number(form.pet_id) : null,

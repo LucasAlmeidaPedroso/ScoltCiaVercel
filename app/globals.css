@@ -312,6 +312,15 @@ textarea { resize: vertical; }
   display: grid;
   gap: 14px;
 }
+.compact-form {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.compact-form button {
+  justify-content: center;
+}
 .reservation-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -351,7 +360,7 @@ textarea { resize: vertical; }
 
 @media (max-width: 640px) {
   .brand strong { display: none; }
-  .service-grid, .form-grid { grid-template-columns: 1fr; }
+  .service-grid, .form-grid, .compact-form { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .hero { padding-top: 42px; }
   h1 { font-size: 54px; }

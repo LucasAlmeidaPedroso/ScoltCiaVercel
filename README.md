@@ -27,7 +27,6 @@ http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
-ADMIN_PASSWORD=uma-senha-forte
 ```
 
 Sem Supabase configurado, o projeto usa dados demo para visualizacao.
@@ -56,10 +55,11 @@ Acesse:
 /admin
 ```
 
-Senha local padrao:
+Usuario inicial criado pelo SQL:
 
 ```txt
-admin123
+lucasalmeidapedroso@gmail.com
+!Levi@2023
 ```
 
-No Vercel, troque com `ADMIN_PASSWORD`.
+Depois do primeiro acesso, use o painel para cadastrar outros usuarios da equipe.

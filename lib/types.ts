@@ -28,3 +28,19 @@ export type Reservation = ReservationPayload & {
   status: string;
   created_at: string;
 };
+
+export type AppUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "equipe" | "tutor";
+  is_active: boolean;
+  created_at: string;
+};
+
+export type UserPayload = {
+  name: string;
+  email: string;
+  password: string;
+  role: "admin" | "equipe" | "tutor";
+};

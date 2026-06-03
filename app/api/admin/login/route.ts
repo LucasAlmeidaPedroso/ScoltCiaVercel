@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
+import { verifyAdminCredentials } from "@/lib/auth";
 
 export async function POST(request: Request) {
-  const { password } = await request.json();
-  const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
+  const { email, password } = await request.json();
+  const admin = await verifyAdminCredentials(email, password);
 
-  if (password !== adminPassword) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  if (!admin) {
+    return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, user: admin });
 }
