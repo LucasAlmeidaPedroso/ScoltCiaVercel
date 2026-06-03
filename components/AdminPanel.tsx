@@ -22,6 +22,8 @@ const statusTabs = [
   { label: "Canceladas", status: "Cancelada" }
 ];
 
+const googleLoginEnabled = false;
+
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -124,6 +126,11 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function googleLogin() {
+    if (!googleLoginEnabled) {
+      setLoginMessage("Login com Google preparado, mas desativado por enquanto.");
+      return;
+    }
+
     setLoginMessage("");
     const supabase = getSupabaseBrowser();
 
@@ -221,7 +228,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           </div>
           <button className="login-submit" type="submit"><Lock size={18} />Entrar</button>
           <div className="login-divider"><span></span>ou<span></span></div>
-          <button className="google-button" type="button" onClick={googleLogin}><strong>G</strong>Entrar com Google</button>
+          <button className="google-button" type="button" onClick={googleLogin} disabled={!googleLoginEnabled}><strong>G</strong>Entrar com Google</button>
           {loginMessage && <strong className="form-warning">{loginMessage}</strong>}
           <p className="login-help">Ainda nao tem uma conta? <a href="mailto:lucasalmeidapedroso@gmail.com">Fale com o administrador</a></p>
         </form>

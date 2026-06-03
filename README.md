@@ -66,7 +66,15 @@ Depois do primeiro acesso, use o painel para cadastrar outros usuarios da equipe
 
 ## Login com Google
 
-Para habilitar o botao **Entrar com Google**:
+O codigo do login com Google ja esta preparado, mas o botao esta desativado no componente `AdminPanel`.
+
+Para reativar, altere:
+
+```ts
+const googleLoginEnabled = true;
+```
+
+Depois configure no Supabase:
 
 1. No Supabase, abra **Authentication > Providers**.
 2. Ative o provider **Google**.
