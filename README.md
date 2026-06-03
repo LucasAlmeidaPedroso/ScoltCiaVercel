@@ -1,0 +1,65 @@
+# Scolt&Cia - Vercel + Supabase
+
+Projeto convertido para Next.js, pronto para deploy na Vercel.
+
+## Rodar local
+
+```powershell
+npm install
+npm run dev
+```
+
+Abra:
+
+```txt
+http://localhost:3000
+```
+
+## Supabase
+
+1. Crie um projeto no Supabase.
+2. Abra o SQL Editor.
+3. Rode o arquivo `supabase/schema.sql`.
+4. Copie as chaves em **Project Settings > API**.
+5. Configure no Vercel:
+
+```txt
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+ADMIN_PASSWORD=uma-senha-forte
+```
+
+Sem Supabase configurado, o projeto usa dados demo para visualizacao.
+
+## Deploy na Vercel
+
+1. Suba este diretorio para o GitHub.
+2. Na Vercel, importe o repositorio.
+3. Se o repositorio tambem tiver a pasta ASP.NET, configure:
+
+```txt
+Root Directory: ScoltCiaVercel
+Framework Preset: Next.js
+Build Command: npm run build
+Output Directory: .next
+```
+
+4. Adicione as variaveis de ambiente do Supabase.
+5. Deploy.
+
+## Admin
+
+Acesse:
+
+```txt
+/admin
+```
+
+Senha local padrao:
+
+```txt
+admin123
+```
+
+No Vercel, troque com `ADMIN_PASSWORD`.

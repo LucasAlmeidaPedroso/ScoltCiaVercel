@@ -1,0 +1,62 @@
+import { demoPets, demoReservations } from "./demo-data";
+import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
+import type { PetOption, Reservation, ReservationPayload } from "./types";
+
+export async function listPets(): Promise<PetOption[]> {
+  if (!hasSupabaseEnv()) return demoPets;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("pet_options")
+    .select("*")
+    .order("name");
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listReservations(): Promise<Reservation[]> {
+  if (!hasSupabaseEnv()) return demoReservations;
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("*")
+    .order("entry_date", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createReservation(payload: ReservationPayload, status = "Aguardando aprovacao") {
+  if (!hasSupabaseEnv()) {
+    return { id: Date.now(), ...payload, status };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("reservations")
+    .insert({ ...payload, status })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateReservationStatus(id: number, status: string) {
+  if (!hasSupabaseEnv()) {
+    return { id, status };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("reservations")
+    .update({ status })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
