@@ -1415,10 +1415,7 @@ textarea { resize: vertical; }
   min-height: 118px;
 }
 .pets-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 370px;
-  gap: 22px;
-  align-items: start;
+  display: block;
 }
 .pets-filterbar {
   grid-template-columns: minmax(220px, 1fr) repeat(3, minmax(150px, .7fr)) auto;
@@ -1478,17 +1475,20 @@ textarea { resize: vertical; }
 .pet-size.medium { color: #2385d9; background: #e4f2ff; }
 .pet-size.small { color: #f3aa14; background: #fff0cf; }
 .pet-detail-card {
-  position: sticky;
-  top: 22px;
   border: 1px solid #edf1f7;
   border-radius: 16px;
   padding: 22px;
   background: #fff;
   box-shadow: 0 12px 30px rgba(7, 29, 58, .06);
 }
+.pet-detail-modal {
+  width: min(640px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
 .pet-detail-hero {
   display: grid;
-  grid-template-columns: 78px 1fr auto;
+  grid-template-columns: 78px 1fr auto auto;
   gap: 14px;
   align-items: center;
 }
@@ -1501,6 +1501,17 @@ textarea { resize: vertical; }
   color: #405672;
   font-size: 13px;
   font-weight: 700;
+}
+.pet-detail-close {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #173054;
+  background: #eef3f8;
+  cursor: pointer;
 }
 .pet-actions {
   display: grid;

@@ -166,10 +166,11 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
   const [sizeFilter, setSizeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tab, setTab] = useState("info");
+  const [detail, setDetail] = useState<PetOption | null>(null);
   const [editing, setEditing] = useState<PetOption | null>(null);
   const [editForm, setEditForm] = useState<PetPatch>({});
   const breeds = Array.from(new Set(pets.map((pet) => pet.breed).filter(Boolean) as string[])).sort();
-  const selected = pets.find((pet) => pet.id === selectedPetId) || pets[0];
+  const selected = selectedPetId ? pets.find((pet) => pet.id === selectedPetId) : undefined;
   const filteredPets = useMemo(() => {
     const text = query.trim().toLowerCase();
     return pets.filter((pet) => {
@@ -186,6 +187,7 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
 
   function openEdit(pet: PetOption) {
     setEditing(pet);
+    setDetail(null);
     setEditForm({
       name: pet.name,
       breed: pet.breed || "",
@@ -207,6 +209,12 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
     if (!editing) return;
     await onPatch(editing.id, { ...editForm, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null });
     setEditing(null);
+  }
+
+  function openDetail(pet: PetOption) {
+    setSelectedPetId(pet.id);
+    setTab("info");
+    setDetail(pet);
   }
 
   return (
@@ -243,8 +251,8 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
           <div className="pets-table">
             <div className="pets-table-head"><span></span><span>Pet</span><span>Tutor</span><span>Raca</span><span>Porte</span><span>Idade</span><span>Status</span><span>Ultima atividade</span><span></span></div>
             {filteredPets.map((pet) => (
-              <button key={pet.id} className={`pets-table-row ${selected?.id === pet.id ? "active" : ""}`} onClick={() => { setSelectedPetId(pet.id); setTab("info"); }}>
-                <span><input type="checkbox" checked={selected?.id === pet.id} onChange={() => setSelectedPetId(pet.id)} /></span>
+              <button key={pet.id} className={`pets-table-row ${selected?.id === pet.id ? "active" : ""}`} onClick={() => openDetail(pet)}>
+                <span><input type="checkbox" checked={selected?.id === pet.id} onChange={() => openDetail(pet)} /></span>
                 <span className="reservation-pet-cell"><i>{pet.name.slice(0, 1)}</i><span><b>{pet.name}</b><small>{pet.sex || ""}</small></span></span>
                 <span><b>{pet.tutor_name || "Sem tutor"}</b><small>{pet.tutor_phone || "Telefone nao informado"}</small></span>
                 <span>{pet.breed || "-"}</span>
@@ -259,29 +267,35 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
           </div>
         </section>
 
-        <aside className="pet-detail-card">
-          {selected ? (
+      </div>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+        <aside className="pet-detail-card pet-detail-modal">
+          {detail ? (
             <>
               <div className="pet-detail-hero">
-                <div className="reservation-detail-avatar">{selected.name.slice(0, 1)}</div>
-                <div><h2>{selected.name}</h2><span>{selected.breed || "Raca nao informada"} - {petAge(selected)}</span></div>
-                <em className="reservation-status confirmed">{petStatus(selected, reservations)}</em>
+                <div className="reservation-detail-avatar">{detail.name.slice(0, 1)}</div>
+                <div><h2>{detail.name}</h2><span>{detail.breed || "Raca nao informada"} - {petAge(detail)}</span></div>
+                <em className="reservation-status confirmed">{petStatus(detail, reservations)}</em>
+                <button className="pet-detail-close" onClick={() => setDetail(null)}><X size={18} /></button>
               </div>
               <div className="pet-actions">
-                <button onClick={() => openEdit(selected)}><Edit3 size={16} />Editar</button>
+                <button onClick={() => openEdit(detail)}><Edit3 size={16} />Editar</button>
                 <button onClick={() => setTab("docs")}><ClipboardCheck size={16} />Vacinas</button>
                 <button onClick={() => setTab("history")}><Clock size={16} />Historico</button>
                 <button onClick={() => setTab("notes")}><MoreVertical size={16} />Mais</button>
               </div>
               <div className="pet-tabs"><button className={tab === "info" ? "active" : ""} onClick={() => setTab("info")}>Informacoes</button><button className={tab === "docs" ? "active" : ""} onClick={() => setTab("docs")}>Documentos</button><button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historico</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}>Anotacoes</button></div>
-              {tab === "info" && <div className="pet-info-grid"><p><span>Tutor</span><strong>{selected.tutor_name || "-"}</strong></p><p><span>Data de nascimento</span><strong>{selected.birth_date ? dateLabel(selected.birth_date) : "-"}</strong></p><p><span>Telefone</span><strong>{selected.tutor_phone || "-"}</strong></p><p><span>Peso</span><strong>{selected.weight ? `${selected.weight} kg` : "-"}</strong></p><p><span>E-mail</span><strong>{selected.tutor_email || "-"}</strong></p><p><span>Sexo</span><strong>{selected.sex || "-"}</strong></p><p><span>Porte</span><strong>{selected.size || "-"}</strong></p><p><span>Veterinario</span><strong>{selected.veterinarian || "-"}</strong></p></div>}
-              {tab === "docs" && <div className="pet-note-box"><strong>Documentos e vacinas</strong><p>{selected.birth_date ? "Cadastro com data de nascimento informada." : "Cadastre data de nascimento e documentos para acompanhar vencimentos."}</p><p>{selected.photo_url ? "Foto cadastrada." : "Foto ainda nao cadastrada."}</p></div>}
-              {tab === "history" && <div className="pet-activity-list">{reservations.filter((item) => item.pet_id === selected.id || item.pet_name.toLowerCase() === selected.name.toLowerCase()).slice(0, 5).map((item) => <article key={item.id}><span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span><strong>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</strong></article>)}<button className="approve-action"><Plus size={16} />Nova atividade</button></div>}
-              {tab === "notes" && <div className="pet-note-box"><strong>Informacoes importantes</strong>{petNotes(selected).length ? petNotes(selected).map((note) => <p key={note}>{note}</p>) : <p>Nenhuma anotacao importante cadastrada.</p>}</div>}
+              {tab === "info" && <div className="pet-info-grid"><p><span>Tutor</span><strong>{detail.tutor_name || "-"}</strong></p><p><span>Data de nascimento</span><strong>{detail.birth_date ? dateLabel(detail.birth_date) : "-"}</strong></p><p><span>Telefone</span><strong>{detail.tutor_phone || "-"}</strong></p><p><span>Peso</span><strong>{detail.weight ? `${detail.weight} kg` : "-"}</strong></p><p><span>E-mail</span><strong>{detail.tutor_email || "-"}</strong></p><p><span>Sexo</span><strong>{detail.sex || "-"}</strong></p><p><span>Porte</span><strong>{detail.size || "-"}</strong></p><p><span>Veterinario</span><strong>{detail.veterinarian || "-"}</strong></p></div>}
+              {tab === "docs" && <div className="pet-note-box"><strong>Documentos e vacinas</strong><p>{detail.birth_date ? "Cadastro com data de nascimento informada." : "Cadastre data de nascimento e documentos para acompanhar vencimentos."}</p><p>{detail.photo_url ? "Foto cadastrada." : "Foto ainda nao cadastrada."}</p></div>}
+              {tab === "history" && <div className="pet-activity-list">{reservations.filter((item) => item.pet_id === detail.id || item.pet_name.toLowerCase() === detail.name.toLowerCase()).slice(0, 5).map((item) => <article key={item.id}><span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span><strong>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</strong></article>)}<button className="approve-action"><Plus size={16} />Nova atividade</button></div>}
+              {tab === "notes" && <div className="pet-note-box"><strong>Informacoes importantes</strong>{petNotes(detail).length ? petNotes(detail).map((note) => <p key={note}>{note}</p>) : <p>Nenhuma anotacao importante cadastrada.</p>}</div>}
             </>
           ) : <p className="admin-empty">Selecione um pet para ver os detalhes.</p>}
         </aside>
-      </div>
+        </div>
+      )}
 
       {editing && (
         <div className="reservation-modal-backdrop">
