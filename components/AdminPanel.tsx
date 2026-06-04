@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarCheck, Check, ChevronRight, ClipboardCheck, Clock, Eye, EyeOff, Gamepad2, Heart, LayoutDashboard, Lock, Mail, Package, PawPrint, Scissors, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { Activity, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Download, Eye, EyeOff, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, UserRound, Users, Utensils, X } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppUser, DaycareSettings, PetOption, Reservation, UserPayload } from "@/lib/types";
@@ -30,6 +30,123 @@ function money(value: number) {
 
 function activeCapacityCount(reservations: Reservation[]) {
   return reservations.filter((item) => ["Aguardando aprovacao", "Pendente", "Confirmada", "Em andamento"].includes(item.status)).length;
+}
+
+function AdminDashboardHome({ pendingCount }: { pendingCount: number }) {
+  const checkins = [
+    ["Thor", "Golden Retriever", "Hospedagem", "14:00", "Concluido"],
+    ["Chico", "Labrador", "Day Care", "08:30", "Concluido"],
+    ["Mel", "Shih Tzu", "Hospedagem", "14:00", "Pendente"],
+    ["Luna", "Poodle", "Banho e Tosa", "10:00", "Pendente"]
+  ];
+  const reservations = [
+    ["Thor", "Day Care", "Hoje - 08:00", "Confirmado"],
+    ["Mel", "Hospedagem", "Hoje - 14:00", "Confirmado"],
+    ["Luna", "Banho e Tosa", "Amanha - 10:00", "Pendente"]
+  ];
+  const activities = [
+    ["08:00", "Abertura da unidade", "Unidade Vila Mariana", CheckCircle2],
+    ["09:00", "Atividade recreativa", "Area externa", Activity],
+    ["12:00", "Alimentacao", "Todos os grupos", Utensils],
+    ["15:00", "Banho e Tosa", "3 agendamentos", Scissors],
+    ["18:00", "Encerramento do dia", "Unidade Vila Mariana", CheckCircle2]
+  ];
+
+  return (
+    <section className="admin-main admin-dashboard-page">
+      <header className="admin-dashboard-topbar">
+        <div>
+          <h1>Ola, Marina!</h1>
+          <p>Bem-vinda ao painel de gestao da Scolt&Cia.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <label className="admin-search"><input placeholder="Buscar..." /><Search size={20} /></label>
+          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, 20 de maio de 2025</div>
+        </div>
+      </header>
+
+      <div className="admin-kpi-grid">
+        <article className="admin-kpi kpi-aqua"><span><Users size={30} /></span><div><small>Reservas hoje</small><strong>28</strong><em>+ 12% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,28 18,20 36,27 54,24 72,30 90,35 108,33 126,36 144,25 162,18 180,21" /></svg></article>
+        <article className="admin-kpi kpi-purple"><span><Home size={30} /></span><div><small>Hospedagens ativas</small><strong>14</strong><em>+ 8% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,26 18,20 36,28 54,24 72,31 90,34 108,35 126,30 144,18 162,16 180,20" /></svg></article>
+        <article className="admin-kpi kpi-yellow"><span><PawPrint size={30} /></span><div><small>Day Care hoje</small><strong>36</strong><em>+ 15% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,30 18,18 36,29 54,27 72,34 90,36 108,32 126,20 144,17 162,22 180,14" /></svg></article>
+        <article className="admin-kpi kpi-pink"><span><Heart size={30} /></span><div><small>Clientes ativos</small><strong>152</strong><em>+ 10% vs ultimo mes</em></div><svg viewBox="0 0 180 44"><polyline points="0,27 18,19 36,28 54,25 72,31 90,34 108,25 126,18 144,20 162,17 180,22" /></svg></article>
+      </div>
+
+      <div className="admin-dashboard-layout">
+        <section className="admin-panel-card admin-line-card">
+          <div className="admin-card-head"><h2>Visao geral de reservas</h2><button>Ultimos 7 dias <ChevronRight size={16} /></button></div>
+          <div className="admin-chart-legend"><span className="aqua">Day Care</span><span className="purple">Hospedagem</span><span className="yellow">Banho e Tosa</span></div>
+          <div className="admin-line-chart">
+            <div className="admin-y-axis"><span>40</span><span>30</span><span>20</span><span>10</span><span>0</span></div>
+            <svg viewBox="0 0 620 220" preserveAspectRatio="none">
+              <polyline className="line-aqua" points="0,160 95,132 190,94 285,108 380,54 475,78 620,116" />
+              <polyline className="line-purple" points="0,178 95,145 190,116 285,146 380,98 475,106 620,136" />
+              <polyline className="line-yellow" points="0,192 95,194 190,164 285,185 380,162 475,182 620,164" />
+            </svg>
+            <div className="admin-x-axis"><span>14/05</span><span>15/05</span><span>16/05</span><span>17/05</span><span>18/05</span><span>19/05</span><span>20/05</span></div>
+          </div>
+        </section>
+
+        <section className="admin-panel-card admin-donut-card">
+          <h2>Reservas por servico</h2>
+          <div className="admin-donut-wrap"><div className="admin-donut"><span>Total<strong>78</strong></span></div><div className="admin-donut-legend"><p><i className="aqua"></i>Day Care <strong>45 (57.7%)</strong></p><p><i className="purple"></i>Hospedagem <strong>20 (25.6%)</strong></p><p><i className="yellow"></i>Banho e Tosa <strong>13 (16.7%)</strong></p></div></div>
+        </section>
+
+        <aside className="admin-dashboard-side">
+
+          <section className="admin-panel-card admin-next-reservations">
+            <h2>Proximas reservas</h2>
+            {reservations.map((row) => (
+              <article key={row[0]}><div className="admin-pet-thumb">{row[0].slice(0, 1)}</div><div><strong>{row[0]}</strong><span>{row[1]}</span><small>{row[2]}</small></div><b className={row[3] === "Confirmado" ? "ok" : "wait"}>{row[3]}</b></article>
+            ))}
+            <button className="admin-wide-button">Ver todas as reservas <ChevronRight size={16} /></button>
+          </section>
+
+          <section className="admin-panel-card admin-birthdays">
+            <div className="admin-card-head"><h2>Aniversariantes do mes</h2><a>Ver todos</a></div>
+            {["Rex 06/05", "Maya 12/05", "Buddy 25/05"].map((item) => <article key={item}><div className="admin-pet-thumb">{item.slice(0, 1)}</div><span>{item}</span><Cake size={26} /></article>)}
+          </section>
+
+          <section className="admin-panel-card admin-quick-reports">
+            <div className="admin-card-head"><h2>Relatorios rapidos</h2><button><Download size={18} /></button></div>
+            <a><ClipboardCheck size={16} />Relatorio de reservas</a>
+            <a><ClipboardCheck size={16} />Relatorio de Day Care</a>
+            <a><ClipboardCheck size={16} />Relatorio de Hospedagem</a>
+            <a><ClipboardCheck size={16} />Relatorio financeiro</a>
+          </section>
+        </aside>
+
+        <section className="admin-panel-card admin-checkins">
+          <h2>Check-ins de hoje</h2>
+          {checkins.map((row) => (
+            <article key={row[0]}><div className="admin-pet-thumb">{row[0].slice(0, 1)}</div><div><strong>{row[0]}</strong><span>{row[1]}</span></div><em>{row[2]}</em><small><Clock size={14} />{row[3]}</small><b className={row[4] === "Concluido" ? "ok" : "wait"}>{row[4]}</b></article>
+          ))}
+          <button className="admin-wide-button">Ver todos check-ins <ChevronRight size={16} /></button>
+        </section>
+
+        <section className="admin-panel-card admin-activities">
+          <h2>Atividades de hoje</h2>
+          {activities.map(([time, title, text, Icon]) => {
+            const ActivityIcon = Icon as typeof CheckCircle2;
+            return <article key={String(title)}><time>{String(time)}</time><span><ActivityIcon size={18} /></span><div><strong>{String(title)}</strong><small>{String(text)}</small></div></article>;
+          })}
+          <button className="admin-wide-button">Ver agenda completa <ChevronRight size={16} /></button>
+        </section>
+
+        <section className="admin-panel-card admin-indicators">
+          <h2>Indicadores do mes</h2>
+          <div>
+            <article><span><PawPrint size={26} /></span><small>Taxa de ocupacao</small><strong>82%</strong><em>+ 9% vs mes anterior</em></article>
+            <article><span><Star size={26} /></span><small>Satisfacao dos tutores</small><strong>4,8 / 5</strong><em>+ 0,3 vs mes anterior</em></article>
+            <article><span><Users size={26} /></span><small>Novos clientes</small><strong>23</strong><em>+ 15% vs mes anterior</em></article>
+            <article><span><Scissors size={26} /></span><small>Faturamento</small><strong>R$ 48.560,00</strong><em>+ 12% vs mes anterior</em></article>
+          </div>
+        </section>
+      </div>
+      <button className="admin-floating-action"><Plus size={24} /><span>Acoes rapidas</span></button>
+    </section>
+  );
 }
 
 export function AdminPanel({ pets, reservations, settings }: Props) {
@@ -254,12 +371,36 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
             <a><Package size={18} />Pacotes</a>
             <a><ClipboardCheck size={18} />Relatorios diarios</a>
           </div>
+          <div className="admin-nav-section">
+            <span>Operacao</span>
+            <a><CalendarDays size={18} />Agenda</a>
+            <a><CheckCircle2 size={18} />Check-in / Check-out</a>
+            <a><Activity size={18} />Atividades</a>
+            <a><Utensils size={18} />Alimentacao</a>
+            <a><Scissors size={18} />Banho e Tosa</a>
+          </div>
+          <div className="admin-nav-section">
+            <span>Equipe</span>
+            <a><Users size={18} />Equipe</a>
+            <a><UserRound size={18} />Funcoes e permissoes</a>
+            <a><CalendarCheck size={18} />Escalas</a>
+          </div>
+          <div className="admin-nav-section">
+            <span>Configuracoes</span>
+            <a><Home size={18} />Unidade</a>
+            <a><Mail size={18} />Comunicacoes</a>
+            <a><ShieldCheck size={18} />Configuracoes gerais</a>
+          </div>
         </nav>
-        <a className="quick-whatsapp" href="https://wa.me/5511984130296" target="_blank">Atendimento rapido<br /><strong>Falar no WhatsApp</strong></a>
-        <div className="admin-profile"><UserRound size={34} /><div><strong>Admin</strong><span>Administrador</span></div></div>
+        <div className="admin-profile">
+          <div className="admin-profile-photo">M</div>
+          <div><strong>Marina Souza</strong><span>Administrador</span></div>
+          <ChevronRight size={16} />
+        </div>
       </aside>
 
-      <section className="admin-main">
+      <AdminDashboardHome pendingCount={countByStatus("Aguardando aprovacao")} />
+      <section className="admin-main admin-legacy-hidden">
         <header className="admin-topbar">
           <div>
             <h1>Gestao de Reservas</h1>
