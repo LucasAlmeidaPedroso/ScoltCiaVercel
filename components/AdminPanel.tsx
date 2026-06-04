@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AppUser, DaycareSettings, PetOption, Reservation, TutorPayload, UserPayload } from "@/lib/types";
+import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, Reservation, TutorPayload, UserPayload } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
@@ -13,7 +13,8 @@ type Props = {
   settings: DaycareSettings;
 };
 
-type AdminPageKey = "dashboard" | "reservations" | "pets" | "clients" | "users";
+type AdminModulePageKey = "services" | "packages" | "daily_reports" | "activities" | "feeding" | "schedules" | "unit" | "communications" | "general_settings";
+type AdminPageKey = "dashboard" | "reservations" | "pets" | "clients" | "agenda" | "checkin" | "grooming" | "users" | AdminModulePageKey;
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -25,6 +26,169 @@ const statusTabs = [
 ];
 
 const googleLoginEnabled = false;
+
+type ModuleField = {
+  key: string;
+  label: string;
+  type?: "text" | "number" | "date" | "time" | "textarea" | "select";
+  options?: string[];
+};
+
+type ModuleConfig = {
+  key: AdminModulePageKey;
+  title: string;
+  description: string;
+  newLabel: string;
+  icon: typeof PawPrint;
+  fields: ModuleField[];
+  defaults: AdminRecordPayload[];
+};
+
+const moduleConfigs: Record<AdminModulePageKey, ModuleConfig> = {
+  services: {
+    key: "services",
+    title: "Servicos",
+    description: "Cadastre e acompanhe os servicos oferecidos pela Scolt&Cia.",
+    newLabel: "Novo servico",
+    icon: Scissors,
+    fields: [
+      { key: "price", label: "Preco", type: "number" },
+      { key: "duration", label: "Duracao" },
+      { key: "capacity", label: "Capacidade diaria", type: "number" },
+      { key: "description", label: "Descricao", type: "textarea" }
+    ],
+    defaults: [
+      { module_key: "services", title: "Creche / Day Care", status: "Ativo", payload: { price: 85, duration: "Diaria", capacity: 20, description: "Socializacao, recreacao e descanso supervisionado." } },
+      { module_key: "services", title: "Hospedagem", status: "Ativo", payload: { price: 120, duration: "Diaria", capacity: 10, description: "Pernoite com rotina, carinho e acompanhamento." } },
+      { module_key: "services", title: "Banho e Tosa", status: "Ativo", payload: { price: 120, duration: "2 horas", capacity: 8, description: "Higiene completa com cuidado e qualidade." } }
+    ]
+  },
+  packages: {
+    key: "packages",
+    title: "Pacotes",
+    description: "Monte pacotes comerciais para recorrencia, hospedagem e banho.",
+    newLabel: "Novo pacote",
+    icon: Package,
+    fields: [
+      { key: "service", label: "Servico", type: "select", options: ["Day Care", "Hospedagem", "Banho e Tosa", "Misto"] },
+      { key: "sessions", label: "Sessoes/diarias", type: "number" },
+      { key: "price", label: "Valor", type: "number" },
+      { key: "validity", label: "Validade" }
+    ],
+    defaults: [
+      { module_key: "packages", title: "Day Care 10 diarias", status: "Ativo", payload: { service: "Day Care", sessions: 10, price: 780, validity: "30 dias" } },
+      { module_key: "packages", title: "Hospedagem Premium", status: "Ativo", payload: { service: "Hospedagem", sessions: 5, price: 560, validity: "60 dias" } }
+    ]
+  },
+  daily_reports: {
+    key: "daily_reports",
+    title: "Relatorios diarios",
+    description: "Registre humor, alimentacao, atividades e observacoes para tutores.",
+    newLabel: "Novo relatorio",
+    icon: ClipboardCheck,
+    fields: [
+      { key: "pet", label: "Pet" },
+      { key: "date", label: "Data", type: "date" },
+      { key: "mood", label: "Humor", type: "select", options: ["Feliz", "Calmo", "Agitado", "Sonolento"] },
+      { key: "feeding", label: "Alimentacao" },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: []
+  },
+  activities: {
+    key: "activities",
+    title: "Atividades",
+    description: "Planeje e registre as atividades recreativas dos grupos.",
+    newLabel: "Nova atividade",
+    icon: Activity,
+    fields: [
+      { key: "date", label: "Data", type: "date" },
+      { key: "time", label: "Horario", type: "time" },
+      { key: "group", label: "Grupo" },
+      { key: "responsible", label: "Responsavel" },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: [
+      { module_key: "activities", title: "Recreacao monitorada", status: "Planejada", payload: { date: localDateKey(), time: "09:00", group: "Todos os grupos", responsible: "Equipe", notes: "Brincadeiras e socializacao." } }
+    ]
+  },
+  feeding: {
+    key: "feeding",
+    title: "Alimentacao",
+    description: "Controle refeicoes, restricoes e confirmacoes de alimentacao.",
+    newLabel: "Novo registro",
+    icon: Utensils,
+    fields: [
+      { key: "pet", label: "Pet" },
+      { key: "date", label: "Data", type: "date" },
+      { key: "time", label: "Horario", type: "time" },
+      { key: "meal", label: "Refeicao" },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: []
+  },
+  schedules: {
+    key: "schedules",
+    title: "Escalas",
+    description: "Organize turnos, responsaveis e cobertura da equipe.",
+    newLabel: "Nova escala",
+    icon: CalendarCheck,
+    fields: [
+      { key: "date", label: "Data", type: "date" },
+      { key: "shift", label: "Turno", type: "select", options: ["Manha", "Tarde", "Noite", "Integral"] },
+      { key: "member", label: "Colaborador" },
+      { key: "role", label: "Funcao" },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: []
+  },
+  unit: {
+    key: "unit",
+    title: "Unidade",
+    description: "Mantenha dados da unidade, endereco e operacao.",
+    newLabel: "Novo item",
+    icon: Home,
+    fields: [
+      { key: "value", label: "Valor" },
+      { key: "category", label: "Categoria", type: "select", options: ["Endereco", "Horario", "Operacao", "Contato"] },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: [
+      { module_key: "unit", title: "Endereco", status: "Ativo", payload: { value: "Rua Engenheiro Ernesto Markgraf, 221 - Sao Paulo - SP", category: "Endereco", notes: "Endereco exibido no site e no rodape." } },
+      { module_key: "unit", title: "Horario de funcionamento", status: "Ativo", payload: { value: "Seg a Sab: 7h as 19h", category: "Horario", notes: "Domingo mediante reserva." } }
+    ]
+  },
+  communications: {
+    key: "communications",
+    title: "Comunicacoes",
+    description: "Crie modelos de mensagens para tutores e rotina operacional.",
+    newLabel: "Nova mensagem",
+    icon: Mail,
+    fields: [
+      { key: "channel", label: "Canal", type: "select", options: ["WhatsApp", "E-mail", "Interno"] },
+      { key: "audience", label: "Publico" },
+      { key: "message", label: "Mensagem", type: "textarea" }
+    ],
+    defaults: [
+      { module_key: "communications", title: "Confirmacao de reserva", status: "Ativo", payload: { channel: "WhatsApp", audience: "Tutores", message: "Reserva confirmada! Estamos esperando seu pet com carinho." } }
+    ]
+  },
+  general_settings: {
+    key: "general_settings",
+    title: "Configuracoes gerais",
+    description: "Centralize regras de atendimento, limites e preferencias internas.",
+    newLabel: "Nova configuracao",
+    icon: ShieldCheck,
+    fields: [
+      { key: "value", label: "Valor" },
+      { key: "category", label: "Categoria", type: "select", options: ["Capacidade", "Reserva", "Financeiro", "Sistema"] },
+      { key: "notes", label: "Observacoes", type: "textarea" }
+    ],
+    defaults: [
+      { module_key: "general_settings", title: "Capacidade maxima", status: "Ativo", payload: { value: "20", category: "Capacidade", notes: "Controlada tambem pelo painel de capacidade." } }
+    ]
+  }
+};
 
 function money(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -224,6 +388,192 @@ function tutorTotalSpent(tutor: TutorRecord) {
 
 function tutorLastReservation(tutor: TutorRecord) {
   return [...tutor.reservations].sort((a, b) => b.entry_date.localeCompare(a.entry_date))[0];
+}
+
+type AdminRecordsPageProps = {
+  config: ModuleConfig;
+  records: AdminRecord[];
+  onCreate: (payload: AdminRecordPayload) => Promise<void>;
+  onPatch: (id: number, payload: Partial<AdminRecordPayload>) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+};
+
+function recordValue(record: AdminRecord | AdminRecordPayload, key: string) {
+  const value = record.payload?.[key];
+  return value === undefined || value === null ? "" : String(value);
+}
+
+function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: AdminRecordsPageProps) {
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [detail, setDetail] = useState<AdminRecord | null>(null);
+  const [editing, setEditing] = useState<AdminRecord | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<AdminRecordPayload>({ module_key: config.key, title: "", status: "Ativo", payload: {} });
+  const Icon = config.icon;
+  const mergedRecords = useMemo(() => {
+    const persistedTitles = new Set(records.map((record) => record.title.toLowerCase()));
+    const defaults = config.defaults
+      .filter((item) => !persistedTitles.has(item.title.toLowerCase()))
+      .map((item, index) => ({
+        id: Number(`9${index}${config.key.length}`),
+        module_key: config.key,
+        title: item.title,
+        status: item.status || "Ativo",
+        payload: item.payload || {},
+        created_at: null,
+        updated_at: null
+      } as AdminRecord));
+    return [...records, ...defaults];
+  }, [records, config]);
+
+  const filteredRecords = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return mergedRecords.filter((record) => {
+      const payloadText = Object.values(record.payload || {}).join(" ").toLowerCase();
+      const matchesText = !text || record.title.toLowerCase().includes(text) || record.status.toLowerCase().includes(text) || payloadText.includes(text);
+      const matchesStatus = statusFilter === "all" || record.status === statusFilter;
+      return matchesText && matchesStatus;
+    });
+  }, [mergedRecords, query, statusFilter]);
+
+  const statuses = Array.from(new Set(mergedRecords.map((record) => record.status))).filter(Boolean);
+  const activeCount = mergedRecords.filter((record) => ["Ativo", "Planejada", "Confirmado", "Concluido"].includes(record.status)).length;
+
+  function openCreate() {
+    setCreating(true);
+    setEditing(null);
+    setDetail(null);
+    setForm({ module_key: config.key, title: "", status: "Ativo", payload: Object.fromEntries(config.fields.map((field) => [field.key, ""])) });
+  }
+
+  function openEdit(record: AdminRecord) {
+    setEditing(record);
+    setCreating(false);
+    setDetail(null);
+    setForm({ module_key: config.key, title: record.title, status: record.status, payload: { ...record.payload } });
+  }
+
+  async function saveRecord(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (editing && editing.created_at) {
+      await onPatch(editing.id, form);
+    } else {
+      await onCreate(form);
+    }
+    setCreating(false);
+    setEditing(null);
+  }
+
+  async function removeRecord(record: AdminRecord) {
+    if (record.created_at) await onDelete(record.id);
+    setDetail(null);
+  }
+
+  async function toggleStatus(record: AdminRecord) {
+    const nextStatus = record.status === "Ativo" ? "Inativo" : record.status === "Concluido" ? "Ativo" : "Concluido";
+    if (record.created_at) {
+      await onPatch(record.id, { status: nextStatus });
+    } else {
+      await onCreate({ module_key: config.key, title: record.title, status: nextStatus, payload: record.payload });
+    }
+    setDetail(null);
+  }
+
+  return (
+    <section className="admin-main admin-module-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>{config.title}</h1>
+          <p>{config.description}</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Buscar em ${config.title.toLowerCase()}...`} /><Search size={20} /></label>
+          <button className="admin-bell"><Bell size={20} /><span>{mergedRecords.length}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
+        </div>
+      </header>
+
+      <div className="reservation-metrics module-metrics">
+        <article><span className="aqua"><Icon size={28} /></span><div><small>Total</small><strong>{mergedRecords.length}</strong><em>{filteredRecords.length} no filtro atual</em></div></article>
+        <article><span className="purple"><CheckCircle2 size={28} /></span><div><small>Ativos</small><strong>{activeCount}</strong><em>Itens em uso</em></div></article>
+        <article><span className="yellow"><Clock size={28} /></span><div><small>Pendentes</small><strong>{mergedRecords.filter((record) => ["Pendente", "Planejada"].includes(record.status)).length}</strong><em>Aguardando acao</em></div></article>
+        <article><span className="pink"><Star size={28} /></span><div><small>Modelos</small><strong>{config.defaults.length}</strong><em>Padroes do sistema</em></div></article>
+        <article><span className="aqua"><Edit3 size={28} /></span><div><small>Personalizados</small><strong>{records.length}</strong><em>Salvos no Supabase</em></div></article>
+      </div>
+
+      <section className="reservation-table-card module-table-card">
+        <div className="reservation-filterbar module-filterbar">
+          <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por titulo, status ou detalhe..." /></label>
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">Todos os status</option>
+            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+          <button onClick={() => { setQuery(""); setStatusFilter("all"); }}><Filter size={18} />Filtros</button>
+          <button className="new-client-button" onClick={openCreate}><Plus size={18} />{config.newLabel}</button>
+        </div>
+
+        <div className="module-table">
+          <div className="module-table-head"><span>Item</span><span>Status</span>{config.fields.slice(0, 3).map((field) => <span key={field.key}>{field.label}</span>)}<span></span></div>
+          {filteredRecords.map((record) => (
+            <button key={`${record.module_key}-${record.id}-${record.title}`} className="module-table-row" onClick={() => setDetail(record)}>
+              <span className="module-title-cell"><i><Icon size={18} /></i><b>{record.title}</b><small>{record.created_at ? "Salvo no Supabase" : "Modelo padrao"}</small></span>
+              <span><em className={`reservation-status ${record.status === "Inativo" ? "done" : record.status === "Cancelado" ? "canceled" : record.status === "Pendente" || record.status === "Planejada" ? "pending" : "confirmed"}`}>{record.status}</em></span>
+              {config.fields.slice(0, 3).map((field) => <span key={field.key}><b>{recordValue(record, field.key) || "-"}</b></span>)}
+              <span><MoreVertical size={18} /></span>
+            </button>
+          ))}
+          {filteredRecords.length === 0 && <p className="admin-empty">Nenhum item encontrado.</p>}
+        </div>
+      </section>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+          <aside className="client-detail-card module-detail-modal">
+            <div className="client-detail-head">
+              <div className="client-avatar-large"><Icon size={30} /></div>
+              <div><h2>{detail.title}</h2><p><span>{config.title}</span><span>{detail.created_at ? `Criado em ${dateLabel(detail.created_at.slice(0, 10))}` : "Modelo padrao do sistema"}</span></p></div>
+              <em className="reservation-status confirmed">{detail.status}</em>
+              <button className="pet-detail-close" onClick={() => setDetail(null)}><X size={18} /></button>
+            </div>
+            <div className="module-detail-grid">
+              {config.fields.map((field) => <article key={field.key}><small>{field.label}</small><strong>{recordValue(detail, field.key) || "-"}</strong></article>)}
+            </div>
+            <div className="client-detail-actions">
+              <button onClick={() => openEdit(detail)}><Edit3 size={16} />Editar</button>
+              <button onClick={() => toggleStatus(detail)}><CheckCircle2 size={16} />Alterar status</button>
+              <button className="danger-action" onClick={() => removeRecord(detail)}><Trash2 size={16} />Excluir</button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {(creating || editing) && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal module-edit-modal" onSubmit={saveRecord}>
+            <div className="reservation-detail-head"><h2>{editing ? "Editar item" : config.newLabel}</h2><button type="button" onClick={() => { setCreating(false); setEditing(null); }}><X size={18} /></button></div>
+            <label>Titulo<input required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} /></label>
+            <label>Status<select value={form.status || "Ativo"} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option>Ativo</option><option>Inativo</option><option>Pendente</option><option>Planejada</option><option>Concluido</option><option>Cancelado</option></select></label>
+            {config.fields.map((field) => (
+              <label key={field.key} className={field.type === "textarea" ? "span-2" : ""}>{field.label}
+                {field.type === "textarea" ? (
+                  <textarea rows={4} value={recordValue(form, field.key)} onChange={(event) => setForm((current) => ({ ...current, payload: { ...current.payload, [field.key]: event.target.value } }))} />
+                ) : field.type === "select" ? (
+                  <select value={recordValue(form, field.key)} onChange={(event) => setForm((current) => ({ ...current, payload: { ...current.payload, [field.key]: event.target.value } }))}>
+                    <option value="">Selecione</option>
+                    {field.options?.map((option) => <option key={option}>{option}</option>)}
+                  </select>
+                ) : (
+                  <input type={field.type || "text"} value={recordValue(form, field.key)} onChange={(event) => setForm((current) => ({ ...current, payload: { ...current.payload, [field.key]: event.target.value } }))} />
+                )}
+              </label>
+            ))}
+            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
 }
 
 type AdminTutorsPageProps = {
@@ -611,10 +961,13 @@ type AdminReservationsPageProps = {
   setSelectedId: (id: number) => void;
   pendingCount: number;
   initialStatus: string;
+  initialService?: string;
+  title?: string;
+  description?: string;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
 };
 
-function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, onPatch }: AdminReservationsPageProps) {
+function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -652,6 +1005,10 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   useEffect(() => {
     setStatusFilter(initialStatus);
   }, [initialStatus]);
+
+  useEffect(() => {
+    setServiceFilter(initialService);
+  }, [initialService]);
 
   function openEdit(item: Reservation) {
     setEditing(item);
@@ -692,8 +1049,8 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     <section className="admin-main admin-reservations-page">
       <header className="admin-reservations-head">
         <div>
-          <h1>Reservas</h1>
-          <p>Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.</p>
+          <h1>{title}</h1>
+          <p>{description}</p>
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, tutor ou pet..." /><Search size={20} /></label>
@@ -1004,6 +1361,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [selectedTutorKey, setSelectedTutorKey] = useState("");
   const [extraTutors, setExtraTutors] = useState<TutorRecord[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [adminRecords, setAdminRecords] = useState<AdminRecord[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
@@ -1037,6 +1395,15 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function openPets() {
     setAdminPage("pets");
+  }
+
+  function openModule(page: AdminModulePageKey) {
+    setAdminPage(page);
+  }
+
+  async function loadAdminRecords(headers = adminHeaders()) {
+    const response = await fetch("/api/admin/records", { headers });
+    if (response.ok) setAdminRecords(await response.json());
   }
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
@@ -1088,6 +1455,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         }
       });
       if (usersResponse.ok) setUsers(await usersResponse.json());
+      await loadAdminRecords({
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      });
     } else {
       setLoginMessage("Seu Google entrou, mas esse e-mail nao esta cadastrado como admin.");
     }
@@ -1126,6 +1497,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       setAccessToken("");
       const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
       if (usersResponse.ok) setUsers(await usersResponse.json());
+      await loadAdminRecords();
     } else {
       setLoginMessage("Login nao autorizado. Confira e-mail, senha e se o SQL do Supabase foi rodado.");
     }
@@ -1233,6 +1605,43 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function createAdminRecordItem(payload: AdminRecordPayload) {
+    const response = await fetch("/api/admin/records", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const created = await response.json();
+      setAdminRecords((current) => [created, ...current]);
+    }
+  }
+
+  async function updateAdminRecordItem(id: number, payload: Partial<AdminRecordPayload>) {
+    const response = await fetch("/api/admin/records", {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ id, ...payload })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setAdminRecords((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+    }
+  }
+
+  async function deleteAdminRecordItem(id: number) {
+    const response = await fetch(`/api/admin/records?id=${id}`, {
+      method: "DELETE",
+      headers: adminHeaders()
+    });
+
+    if (response.ok) {
+      setAdminRecords((current) => current.filter((item) => item.id !== id));
+    }
+  }
+
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setUserMessage("");
@@ -1250,6 +1659,19 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       setUserMessage("Usuario cadastrado.");
     } else {
       setUserMessage("Nao foi possivel cadastrar o usuario.");
+    }
+  }
+
+  async function updateAdminUser(id: number, payload: Partial<Pick<AppUser, "role" | "is_active">>) {
+    const response = await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ id, ...payload })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setUsers((current) => current.map((user) => user.id === id ? updated : user));
     }
   }
 
@@ -1296,6 +1718,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     );
   }
 
+  const currentModuleConfig = adminPage in moduleConfigs ? moduleConfigs[adminPage as AdminModulePageKey] : null;
+
   return (
     <div className="admin-dashboard">
       <aside className="admin-sidebar">
@@ -1310,29 +1734,29 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
             <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
             <a className={adminPage === "pets" ? "active" : ""} onClick={openPets}><PawPrint size={18} />Pets</a>
             <a className={adminPage === "clients" ? "active" : ""} onClick={openClients}><Users size={18} />Clientes (Tutores)</a>
-            <a onClick={() => openReservations("all")}><Scissors size={18} />Servicos</a>
-            <a><Package size={18} />Pacotes</a>
-            <a><ClipboardCheck size={18} />Relatorios diarios</a>
+            <a className={adminPage === "services" ? "active" : ""} onClick={() => openModule("services")}><Scissors size={18} />Servicos</a>
+            <a className={adminPage === "packages" ? "active" : ""} onClick={() => openModule("packages")}><Package size={18} />Pacotes</a>
+            <a className={adminPage === "daily_reports" ? "active" : ""} onClick={() => openModule("daily_reports")}><ClipboardCheck size={18} />Relatorios diarios</a>
           </div>
           <div className="admin-nav-section">
             <span>Operacao</span>
-            <a onClick={() => openReservations("all")}><CalendarDays size={18} />Agenda</a>
-            <a onClick={() => openReservations("Confirmada")}><CheckCircle2 size={18} />Check-in / Check-out</a>
-            <a onClick={() => openReservations("Em andamento")}><Activity size={18} />Atividades</a>
-            <a><Utensils size={18} />Alimentacao</a>
-            <a><Scissors size={18} />Banho e Tosa</a>
+            <a className={adminPage === "agenda" ? "active" : ""} onClick={() => setAdminPage("agenda")}><CalendarDays size={18} />Agenda</a>
+            <a className={adminPage === "checkin" ? "active" : ""} onClick={() => setAdminPage("checkin")}><CheckCircle2 size={18} />Check-in / Check-out</a>
+            <a className={adminPage === "activities" ? "active" : ""} onClick={() => openModule("activities")}><Activity size={18} />Atividades</a>
+            <a className={adminPage === "feeding" ? "active" : ""} onClick={() => openModule("feeding")}><Utensils size={18} />Alimentacao</a>
+            <a className={adminPage === "grooming" ? "active" : ""} onClick={() => setAdminPage("grooming")}><Scissors size={18} />Banho e Tosa</a>
           </div>
           <div className="admin-nav-section">
             <span>Equipe</span>
-            <a><Users size={18} />Equipe</a>
-            <a><UserRound size={18} />Funcoes e permissoes</a>
-            <a><CalendarCheck size={18} />Escalas</a>
+            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Equipe</a>
+            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><UserRound size={18} />Funcoes e permissoes</a>
+            <a className={adminPage === "schedules" ? "active" : ""} onClick={() => openModule("schedules")}><CalendarCheck size={18} />Escalas</a>
           </div>
           <div className="admin-nav-section">
             <span>Configuracoes</span>
-            <a><Home size={18} />Unidade</a>
-            <a><Mail size={18} />Comunicacoes</a>
-            <a><ShieldCheck size={18} />Configuracoes gerais</a>
+            <a className={adminPage === "unit" ? "active" : ""} onClick={() => openModule("unit")}><Home size={18} />Unidade</a>
+            <a className={adminPage === "communications" ? "active" : ""} onClick={() => openModule("communications")}><Mail size={18} />Comunicacoes</a>
+            <a className={adminPage === "general_settings" ? "active" : ""} onClick={() => openModule("general_settings")}><ShieldCheck size={18} />Configuracoes gerais</a>
           </div>
         </nav>
         <div className="admin-profile">
@@ -1388,6 +1812,56 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         />
       )}
 
+      {adminPage === "agenda" && (
+        <AdminReservationsPage
+          reservations={items}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          pendingCount={countByStatus("Aguardando aprovacao")}
+          initialStatus="all"
+          title="Agenda"
+          description="Visualize e organize toda a agenda de reservas da unidade."
+          onPatch={updateReservationFields}
+        />
+      )}
+
+      {adminPage === "checkin" && (
+        <AdminReservationsPage
+          reservations={items}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          pendingCount={countByStatus("Aguardando aprovacao")}
+          initialStatus="Confirmada"
+          title="Check-in / Check-out"
+          description="Receba pets, acompanhe entradas e finalize atendimentos."
+          onPatch={updateReservationFields}
+        />
+      )}
+
+      {adminPage === "grooming" && (
+        <AdminReservationsPage
+          reservations={items}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          pendingCount={countByStatus("Aguardando aprovacao")}
+          initialStatus="all"
+          initialService="Banho e Tosa"
+          title="Banho e Tosa"
+          description="Gerencie atendimentos de higiene, banho, tosa e finalizacao."
+          onPatch={updateReservationFields}
+        />
+      )}
+
+      {currentModuleConfig && (
+        <AdminRecordsPage
+          config={currentModuleConfig}
+          records={adminRecords.filter((record) => record.module_key === currentModuleConfig.key)}
+          onCreate={createAdminRecordItem}
+          onPatch={updateAdminRecordItem}
+          onDelete={deleteAdminRecordItem}
+        />
+      )}
+
       {adminPage === "users" && (
         <section className="admin-main admin-legacy-panel">
           <header className="admin-topbar">
@@ -1413,8 +1887,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
             {userMessage && <strong>{userMessage}</strong>}
             <div className="admin-list">
               {users.map((user) => (
-                <article className="reservation-row" key={user.id}>
-                  <div><strong>{user.name}</strong><p>{user.email} - {user.role} - {user.is_active ? "ativo" : "inativo"}</p></div>
+                <article className="reservation-row user-admin-row" key={user.id}>
+                  <div><strong>{user.name}</strong><p>{user.email} - {user.is_active ? "ativo" : "inativo"}</p></div>
+                  <select value={user.role} onChange={(event) => updateAdminUser(user.id, { role: event.target.value as AppUser["role"] })}>
+                    <option value="admin">Admin</option>
+                    <option value="equipe">Equipe</option>
+                    <option value="tutor">Tutor</option>
+                  </select>
+                  <button className={user.is_active ? "danger-action" : ""} onClick={() => updateAdminUser(user.id, { is_active: !user.is_active })}>{user.is_active ? "Desativar" : "Ativar"}</button>
                 </article>
               ))}
             </div>

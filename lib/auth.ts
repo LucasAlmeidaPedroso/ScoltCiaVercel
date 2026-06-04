@@ -137,6 +137,30 @@ export async function createUser(payload: UserPayload): Promise<AppUser> {
   return data;
 }
 
+export async function updateUser(id: number, payload: Partial<Pick<AppUser, "name" | "role" | "is_active">>): Promise<AppUser> {
+  if (!hasSupabaseEnv()) {
+    return {
+      id,
+      name: payload.name || fallbackAdmin.name,
+      email: fallbackAdmin.email,
+      role: payload.role || fallbackAdmin.role,
+      is_active: payload.is_active ?? fallbackAdmin.is_active,
+      created_at: fallbackAdmin.created_at
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("app_users")
+    .update(payload)
+    .eq("id", id)
+    .select("id,name,email,role,is_active,created_at")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function requireAdmin(request: Request) {
   const authorization = request.headers.get("authorization") || "";
   const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";

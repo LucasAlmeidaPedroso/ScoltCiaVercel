@@ -1740,6 +1740,120 @@ textarea { resize: vertical; }
 .client-edit-modal {
   width: min(700px, 100%);
 }
+.admin-module-page {
+  min-width: 0;
+  padding: 34px;
+  background: #fbfcff;
+}
+.module-filterbar {
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, .55fr) auto auto;
+}
+.module-table {
+  padding-bottom: 8px;
+}
+.module-table-head,
+.module-table-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(110px, .55fr) repeat(3, minmax(130px, .8fr)) 24px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+}
+.module-table-head {
+  color: #405672;
+  font-size: 12px;
+  font-weight: 900;
+}
+.module-table-row {
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  border: 0;
+  border-top: 1px solid #edf1f7;
+  border-radius: 12px;
+  color: #071d3a;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.module-table-row:hover {
+  background: #eafbf8;
+}
+.module-table-row b {
+  display: block;
+  color: #071d3a;
+  font-size: 13px;
+}
+.module-table-row small {
+  display: block;
+  margin-top: 4px;
+  color: #405672;
+  font-size: 11px;
+  font-weight: 700;
+}
+.module-title-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.module-title-cell i {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #0aa895;
+  background: #e2fbf6;
+  font-style: normal;
+}
+.module-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.module-detail-grid article {
+  border: 1px solid #edf1f7;
+  border-radius: 14px;
+  padding: 16px;
+  background: #fff;
+}
+.module-detail-grid small {
+  display: block;
+  color: #405672;
+  font-size: 12px;
+  font-weight: 900;
+}
+.module-detail-grid strong {
+  display: block;
+  margin-top: 8px;
+  color: #071d3a;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.module-edit-modal,
+.module-detail-modal {
+  width: min(760px, 100%);
+}
+.danger-action {
+  color: #ed4f91 !important;
+}
+.user-admin-row {
+  display: grid;
+  grid-template-columns: 1fr 150px 120px;
+  align-items: center;
+  gap: 12px;
+}
+.user-admin-row select,
+.user-admin-row button {
+  height: 40px;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  padding: 0 12px;
+  color: #173054;
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
+}
 .pet-detail-card {
   border: 1px solid #edf1f7;
   border-radius: 16px;

@@ -69,3 +69,20 @@ export type TutorPayload = {
   address?: string | null;
   emergency_contact?: string | null;
 };
+
+export type AdminRecord = {
+  id: number;
+  module_key: string;
+  title: string;
+  status: string;
+  payload: Record<string, unknown>;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type AdminRecordPayload = {
+  module_key: string;
+  title: string;
+  status?: string;
+  payload?: Record<string, unknown>;
+};

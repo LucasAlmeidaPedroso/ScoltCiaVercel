@@ -1,6 +1,6 @@
 import { demoPets, demoReservations } from "./demo-data";
 import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
-import type { DaycareSettings, PetOption, Reservation, ReservationPayload, TutorPayload } from "./types";
+import type { AdminRecord, AdminRecordPayload, DaycareSettings, PetOption, Reservation, ReservationPayload, TutorPayload } from "./types";
 
 export async function listPets(): Promise<PetOption[]> {
   if (!hasSupabaseEnv()) return demoPets;
@@ -126,6 +126,80 @@ export async function updateTutor(id: number, payload: Partial<TutorPayload>) {
 
   if (error) throw error;
   return data;
+}
+
+export async function listAdminRecords(moduleKey?: string): Promise<AdminRecord[]> {
+  if (!hasSupabaseEnv()) return [];
+
+  const supabase = getSupabaseAdmin();
+  let query = supabase
+    .from("admin_records")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (moduleKey) query = query.eq("module_key", moduleKey);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAdminRecord(payload: AdminRecordPayload) {
+  if (!hasSupabaseEnv()) {
+    return {
+      id: Date.now(),
+      module_key: payload.module_key,
+      title: payload.title,
+      status: payload.status || "Ativo",
+      payload: payload.payload || {},
+      created_at: new Date().toISOString()
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_records")
+    .insert({
+      module_key: payload.module_key,
+      title: payload.title,
+      status: payload.status || "Ativo",
+      payload: payload.payload || {}
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAdminRecord(id: number, payload: Partial<AdminRecordPayload>) {
+  if (!hasSupabaseEnv()) {
+    return { id, ...payload, updated_at: new Date().toISOString() };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("admin_records")
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdminRecord(id: number) {
+  if (!hasSupabaseEnv()) return true;
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase
+    .from("admin_records")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+  return true;
 }
 
 export async function getDaycareSettings(): Promise<DaycareSettings> {
