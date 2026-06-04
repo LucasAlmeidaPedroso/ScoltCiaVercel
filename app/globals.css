@@ -1089,10 +1089,7 @@ textarea { resize: vertical; }
   font-weight: 800;
 }
 .reservation-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 348px;
-  gap: 22px;
-  align-items: start;
+  display: block;
 }
 .reservation-table-card,
 .reservation-detail-card,
@@ -1252,9 +1249,12 @@ textarea { resize: vertical; }
   cursor: default;
 }
 .reservation-detail-card {
-  position: sticky;
-  top: 22px;
   padding: 22px;
+}
+.reservation-detail-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
 }
 .reservation-detail-head {
   display: flex;

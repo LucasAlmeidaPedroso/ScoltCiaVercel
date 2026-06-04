@@ -142,6 +142,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(1);
+  const [detail, setDetail] = useState<Reservation | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [editForm, setEditForm] = useState<ReservationPatch>({});
   const perPage = 8;
@@ -173,12 +174,9 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     setStatusFilter(initialStatus);
   }, [initialStatus]);
 
-  useEffect(() => {
-    if (selectedId !== 0 && selected?.id && selected.id !== selectedId) setSelectedId(selected.id);
-  }, [selected, selectedId, setSelectedId]);
-
   function openEdit(item: Reservation) {
     setEditing(item);
+    setDetail(null);
     setEditForm({
       tutor_name: item.tutor_name,
       phone: item.phone,
@@ -199,6 +197,16 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     if (!editing) return;
     await onPatch(editing.id, { ...editForm, exit_date: editForm.exit_date || null });
     setEditing(null);
+  }
+
+  async function patchFromDetail(id: number, payload: ReservationPatch) {
+    await onPatch(id, payload);
+    setDetail(null);
+  }
+
+  function openDetail(item: Reservation) {
+    setSelectedId(item.id);
+    setDetail(item);
   }
 
   return (
@@ -247,8 +255,8 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
               <span></span><span>Reserva</span><span>Tutor</span><span>Pet</span><span>Servico</span><span>Periodo</span><span>Status</span><span>Valor</span><span></span>
             </div>
             {pageItems.map((item) => (
-              <button key={item.id} className={`reservation-table-row ${selected?.id === item.id ? "active" : ""}`} onClick={() => setSelectedId(item.id)}>
-                <span><input type="checkbox" checked={selected?.id === item.id} onChange={() => setSelectedId(item.id)} /></span>
+              <button key={item.id} className={`reservation-table-row ${selected?.id === item.id ? "active" : ""}`} onClick={() => openDetail(item)}>
+                <span><input type="checkbox" checked={selected?.id === item.id} onChange={() => openDetail(item)} /></span>
                 <span><strong>#{String(item.id).padStart(4, "0")}</strong><small>{dateLabel(item.created_at?.slice(0, 10) || item.entry_date)}</small></span>
                 <span><b>{item.tutor_name}</b><small>{item.phone}</small></span>
                 <span className="reservation-pet-cell"><i>{item.pet_name.slice(0, 1)}</i><span><b>{item.pet_name}</b><small>{item.breed || item.size || "Pet"}</small></span></span>
@@ -272,44 +280,49 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
           </footer>
         </section>
 
-        <aside className="reservation-detail-card">
-          {selected ? (
+      </div>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+        <aside className="reservation-detail-card reservation-detail-modal">
+          {detail ? (
             <>
               <div className="reservation-detail-head">
-                <h2>Reserva #{String(selected.id).padStart(4, "0")}</h2>
-                <em className={`reservation-status ${statusClass(selected.status)}`}>{selected.status}</em>
-                <button onClick={() => setSelectedId(0)}><X size={18} /></button>
+                <h2>Reserva #{String(detail.id).padStart(4, "0")}</h2>
+                <em className={`reservation-status ${statusClass(detail.status)}`}>{detail.status}</em>
+                <button onClick={() => setDetail(null)}><X size={18} /></button>
               </div>
               <div className="reservation-detail-pet">
-                <div className="reservation-detail-avatar">{selected.pet_name.slice(0, 1)}</div>
-                <div><strong>{selected.pet_name}</strong><span>{selected.breed || selected.size || "Pet cadastrado"}</span><em className={`reservation-service ${serviceIconClass(selected.service)}`}>{serviceKind(selected.service)}</em></div>
+                <div className="reservation-detail-avatar">{detail.pet_name.slice(0, 1)}</div>
+                <div><strong>{detail.pet_name}</strong><span>{detail.breed || detail.size || "Pet cadastrado"}</span><em className={`reservation-service ${serviceIconClass(detail.service)}`}>{serviceKind(detail.service)}</em></div>
               </div>
               <div className="reservation-detail-period">
-                <strong>{dateLabel(selected.entry_date)} as {selected.expected_time || "--:--"}</strong>
-                <span>ate {dateLabel(selected.exit_date || selected.entry_date)}</span>
-                <small>{reservationDays(selected)} diaria(s)</small>
+                <strong>{dateLabel(detail.entry_date)} as {detail.expected_time || "--:--"}</strong>
+                <span>ate {dateLabel(detail.exit_date || detail.entry_date)}</span>
+                <small>{reservationDays(detail)} diaria(s)</small>
               </div>
               <div className="reservation-detail-section">
                 <h3>Tutor</h3>
-                <p><strong>{selected.tutor_name}</strong><span>{selected.phone}</span><span>{selected.email || "E-mail nao informado"}</span></p>
+                <p><strong>{detail.tutor_name}</strong><span>{detail.phone}</span><span>{detail.email || "E-mail nao informado"}</span></p>
               </div>
               <div className="reservation-detail-section">
                 <h3>Informacoes da reserva</h3>
-                <dl><dt>Data da reserva</dt><dd>{dateLabel(selected.created_at?.slice(0, 10) || selected.entry_date)} as {selected.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Vila Mariana</dd><dt>Pacote</dt><dd>{serviceKind(selected.service)} Premium</dd><dt>Valor total</dt><dd>{money(reservationValue(selected))}</dd><dt>Status do pagamento</dt><dd>Pago</dd></dl>
+                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)} as {detail.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Vila Mariana</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)} Premium</dd><dt>Valor total</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Pago</dd></dl>
               </div>
               <div className="reservation-detail-section">
                 <h3>Observacoes</h3>
-                <p>{selected.notes || "Sem observacoes cadastradas."}</p>
+                <p>{detail.notes || "Sem observacoes cadastradas."}</p>
               </div>
               <div className="reservation-detail-actions">
-                <button className="edit" onClick={() => openEdit(selected)}><Edit3 size={16} />Editar reserva</button>
-                <button onClick={() => onPatch(selected.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Check-in</button>
-                <button className="danger" onClick={() => onPatch(selected.id, { status: "Cancelada" })}><Trash2 size={16} />Cancelar reserva</button>
+                <button className="edit" onClick={() => openEdit(detail)}><Edit3 size={16} />Editar reserva</button>
+                <button onClick={() => patchFromDetail(detail.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Check-in</button>
+                <button className="danger" onClick={() => patchFromDetail(detail.id, { status: "Cancelada" })}><Trash2 size={16} />Cancelar reserva</button>
               </div>
             </>
           ) : <p className="admin-empty">Selecione uma reserva para ver detalhes.</p>}
         </aside>
-      </div>
+        </div>
+      )}
 
       {editing && (
         <div className="reservation-modal-backdrop">
