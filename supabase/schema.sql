@@ -81,7 +81,9 @@ select
   pets.food_restrictions,
   pets.medications,
   pets.important_notes,
-  pets.veterinarian
+  pets.veterinarian,
+  tutors.id as tutor_id,
+  tutors.address as tutor_address
 from pets
 left join tutors on tutors.id = pets.tutor_id;
 

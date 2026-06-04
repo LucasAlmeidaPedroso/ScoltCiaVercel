@@ -1,6 +1,6 @@
 import { demoPets, demoReservations } from "./demo-data";
 import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
-import type { DaycareSettings, PetOption, Reservation, ReservationPayload } from "./types";
+import type { DaycareSettings, PetOption, Reservation, ReservationPayload, TutorPayload } from "./types";
 
 export async function listPets(): Promise<PetOption[]> {
   if (!hasSupabaseEnv()) return demoPets;
@@ -86,6 +86,39 @@ export async function updatePet(id: number, payload: Partial<PetOption>) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("pets")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createTutor(payload: TutorPayload) {
+  if (!hasSupabaseEnv()) {
+    return { id: Date.now(), ...payload, created_at: new Date().toISOString() };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tutors")
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTutor(id: number, payload: Partial<TutorPayload>) {
+  if (!hasSupabaseEnv()) {
+    return { id, ...payload };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tutors")
     .update(payload)
     .eq("id", id)
     .select()

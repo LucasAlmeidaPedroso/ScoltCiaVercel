@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AppUser, DaycareSettings, PetOption, Reservation, UserPayload } from "@/lib/types";
+import type { AppUser, DaycareSettings, PetOption, Reservation, TutorPayload, UserPayload } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
@@ -13,7 +13,7 @@ type Props = {
   settings: DaycareSettings;
 };
 
-type AdminPageKey = "dashboard" | "reservations" | "pets" | "users";
+type AdminPageKey = "dashboard" | "reservations" | "pets" | "clients" | "users";
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -126,6 +126,63 @@ function serviceIconClass(service: string) {
 
 type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
 type PetPatch = Partial<Pick<PetOption, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url">>;
+type TutorPatch = Partial<TutorPayload>;
+
+type TutorRecord = {
+  key: string;
+  id?: number | null;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  created_at?: string | null;
+  pets: PetOption[];
+  reservations: Reservation[];
+};
+
+function tutorKeyFromPet(pet: PetOption) {
+  return String(pet.tutor_id || pet.tutor_email || pet.tutor_phone || pet.tutor_name || pet.id);
+}
+
+function buildTutors(pets: PetOption[], reservations: Reservation[]) {
+  const map = new Map<string, TutorRecord>();
+  pets.forEach((pet) => {
+    const key = tutorKeyFromPet(pet);
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        id: pet.tutor_id,
+        name: pet.tutor_name || "Tutor sem nome",
+        phone: pet.tutor_phone || "",
+        email: pet.tutor_email || "",
+        address: pet.tutor_address || "",
+        created_at: pet.created_at,
+        pets: [],
+        reservations: []
+      });
+    }
+    map.get(key)?.pets.push(pet);
+  });
+  reservations.forEach((reservation) => {
+    const key = String(reservation.email || reservation.phone || reservation.tutor_name);
+    const matched = [...map.values()].find((tutor) => tutor.email === reservation.email || tutor.phone === reservation.phone || tutor.name === reservation.tutor_name);
+    const tutor = matched || map.get(key);
+    if (tutor) {
+      tutor.reservations.push(reservation);
+    } else {
+      map.set(key, {
+        key,
+        name: reservation.tutor_name,
+        phone: reservation.phone,
+        email: reservation.email || "",
+        address: "",
+        pets: [],
+        reservations: [reservation]
+      });
+    }
+  });
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
 
 function petAge(pet: PetOption) {
   if (!pet.birth_date) return "-";
@@ -150,6 +207,236 @@ function petLastActivity(pet: PetOption, reservations: Reservation[]) {
 
 function petNotes(pet: PetOption) {
   return [pet.food_restrictions, pet.medications, pet.important_notes, pet.behavior].filter(Boolean) as string[];
+}
+
+function tutorInitials(name: string) {
+  return name.split(" ").filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "T";
+}
+
+function tutorNeighborhood(address: string) {
+  const parts = address.split(",").map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 2] : "Sao Paulo - SP";
+}
+
+function tutorTotalSpent(tutor: TutorRecord) {
+  return tutor.reservations.reduce((sum, item) => sum + reservationValue(item), 0);
+}
+
+function tutorLastReservation(tutor: TutorRecord) {
+  return [...tutor.reservations].sort((a, b) => b.entry_date.localeCompare(a.entry_date))[0];
+}
+
+type AdminTutorsPageProps = {
+  tutors: TutorRecord[];
+  selectedTutorKey: string;
+  setSelectedTutorKey: (key: string) => void;
+  onCreate: (payload: TutorPayload) => Promise<void>;
+  onPatch: (id: number, payload: TutorPatch) => Promise<void>;
+};
+
+function AdminTutorsPage({ tutors, selectedTutorKey, setSelectedTutorKey, onCreate, onPatch }: AdminTutorsPageProps) {
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [areaFilter, setAreaFilter] = useState("all");
+  const [detail, setDetail] = useState<TutorRecord | null>(null);
+  const [editing, setEditing] = useState<TutorRecord | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<TutorPayload>({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
+  const areas = Array.from(new Set(tutors.map((tutor) => tutorNeighborhood(tutor.address)).filter(Boolean))).sort();
+  const selected = selectedTutorKey ? tutors.find((tutor) => tutor.key === selectedTutorKey) : undefined;
+
+  const filteredTutors = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return tutors.filter((tutor) => {
+      const active = tutor.pets.length > 0 || tutor.reservations.some((item) => activeStatuses.includes(item.status));
+      const matchesText = !text || [tutor.name, tutor.phone, tutor.email, tutor.address, ...tutor.pets.map((pet) => pet.name)].some((value) => String(value || "").toLowerCase().includes(text));
+      const matchesStatus = statusFilter === "all" || (statusFilter === "active" ? active : !active);
+      const matchesArea = areaFilter === "all" || tutorNeighborhood(tutor.address) === areaFilter;
+      return matchesText && matchesStatus && matchesArea;
+    });
+  }, [tutors, query, statusFilter, areaFilter]);
+
+  const activeTutors = tutors.filter((tutor) => tutor.pets.length > 0 || tutor.reservations.some((item) => activeStatuses.includes(item.status))).length;
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+  const newTutors = tutors.filter((tutor) => {
+    if (!tutor.created_at) return false;
+    const created = new Date(tutor.created_at);
+    return created.getMonth() + 1 === currentMonth && created.getFullYear() === currentYear;
+  }).length;
+  const reservationsThisMonth = tutors.filter((tutor) => tutor.reservations.some((item) => {
+    const date = new Date(`${item.entry_date}T12:00:00`);
+    return date.getMonth() + 1 === currentMonth && date.getFullYear() === currentYear;
+  })).length;
+
+  function openDetail(tutor: TutorRecord) {
+    setSelectedTutorKey(tutor.key);
+    setDetail(tutor);
+  }
+
+  function openCreate() {
+    setCreating(true);
+    setEditing(null);
+    setForm({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
+  }
+
+  function openEdit(tutor: TutorRecord) {
+    setEditing(tutor);
+    setCreating(false);
+    setDetail(null);
+    setForm({
+      full_name: tutor.name,
+      phone: tutor.phone,
+      whatsapp: tutor.phone,
+      email: tutor.email,
+      address: tutor.address,
+      emergency_contact: ""
+    });
+  }
+
+  async function saveTutor(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const payload = { ...form, whatsapp: form.whatsapp || form.phone };
+    if (editing?.id) {
+      await onPatch(editing.id, payload);
+    } else {
+      await onCreate(payload);
+    }
+    setEditing(null);
+    setCreating(false);
+  }
+
+  return (
+    <section className="admin-main admin-clients-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>Clientes (Tutores)</h1>
+          <p>Gerencie os tutores cadastrados e acompanhe seu relacionamento.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar tutor por nome, e-mail ou telefone..." /><Search size={20} /></label>
+          <button className="admin-bell"><Bell size={20} /><span>{newTutors}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
+        </div>
+      </header>
+
+      <div className="reservation-metrics client-metrics">
+        <article><span className="aqua"><Users size={28} /></span><div><small>Total de tutores</small><strong>{tutors.length}</strong><em>{filteredTutors.length} no filtro atual</em></div></article>
+        <article><span className="purple"><Star size={28} /></span><div><small>Novos cadastros</small><strong>{newTutors}</strong><em>Este mes</em></div></article>
+        <article><span className="yellow"><Heart size={28} /></span><div><small>Tutores ativos</small><strong>{activeTutors}</strong><em>Com pets ou reservas</em></div></article>
+        <article><span className="pink"><CalendarCheck size={28} /></span><div><small>Com reservas este mes</small><strong>{reservationsThisMonth}</strong><em>Relacionamento ativo</em></div></article>
+        <article><span className="aqua"><Mail size={28} /></span><div><small>Avaliacao media</small><strong>4,8</strong><em>Base pronta para notas</em></div></article>
+      </div>
+
+      <div className="clients-workspace">
+        <section className="reservation-table-card clients-table-card">
+          <div className="reservation-filterbar clients-filterbar">
+            <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar tutor por nome, e-mail ou telefone..." /></label>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">Todos os status</option>
+              <option value="active">Ativos</option>
+              <option value="inactive">Inativos</option>
+            </select>
+            <select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}>
+              <option value="all">Todos os bairros</option>
+              {areas.map((area) => <option key={area} value={area}>{area}</option>)}
+            </select>
+            <button onClick={() => { setQuery(""); setStatusFilter("all"); setAreaFilter("all"); }}><Filter size={18} />Filtros</button>
+            <button className="new-client-button" onClick={openCreate}><Plus size={18} />Novo tutor</button>
+          </div>
+
+          <div className="clients-table">
+            <div className="clients-table-head"><span>Tutor</span><span>Contato</span><span>Pets</span><span>Cidade / Bairro</span><span>Status</span><span>Ultima reserva</span><span>Total gasto</span><span></span></div>
+            {filteredTutors.map((tutor) => {
+              const last = tutorLastReservation(tutor);
+              const active = tutor.pets.length > 0 || tutor.reservations.some((item) => activeStatuses.includes(item.status));
+              return (
+                <button key={tutor.key} className={`clients-table-row ${selected?.key === tutor.key ? "active" : ""}`} onClick={() => openDetail(tutor)}>
+                  <span className="client-name-cell"><i>{tutorInitials(tutor.name)}</i><b>{tutor.name}</b></span>
+                  <span><b>{tutor.phone || "Telefone nao informado"}</b><small>{tutor.email || "E-mail nao informado"}</small></span>
+                  <span><em className="client-pet-count"><PawPrint size={14} />{tutor.pets.length}</em></span>
+                  <span><b>Sao Paulo - SP</b><small>{tutorNeighborhood(tutor.address)}</small></span>
+                  <span><em className={`reservation-status ${active ? "confirmed" : "done"}`}>{active ? "Ativo" : "Inativo"}</em></span>
+                  <span>{last ? <><b>{dateLabel(last.entry_date)}</b><small>{serviceKind(last.service)}</small></> : "Sem reserva"}</span>
+                  <span><b>{money(tutorTotalSpent(tutor))}</b></span>
+                  <span><MoreVertical size={18} /></span>
+                </button>
+              );
+            })}
+            {filteredTutors.length === 0 && <p className="admin-empty">Nenhum tutor encontrado com esses filtros.</p>}
+          </div>
+
+          <footer className="reservation-pagination">
+            <span>Mostrando {filteredTutors.length ? 1 : 0} a {filteredTutors.length} de {tutors.length} tutores</span>
+          </footer>
+        </section>
+      </div>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+          <aside className="client-detail-card client-detail-modal">
+            <div className="client-detail-head">
+              <div className="client-avatar-large">{tutorInitials(detail.name)}</div>
+              <div>
+                <h2>{detail.name}</h2>
+                <p><span>{detail.phone || "Telefone nao informado"}</span><span>{detail.email || "E-mail nao informado"}</span><span>{detail.address || "Endereco nao cadastrado"}</span></p>
+              </div>
+              <em className="reservation-status confirmed">Ativo</em>
+              <button className="pet-detail-close" onClick={() => setDetail(null)}><X size={18} /></button>
+            </div>
+
+            <div className="client-summary-grid">
+              <article><small>Desde</small><strong>{detail.created_at ? dateLabel(detail.created_at.slice(0, 10)) : "-"}</strong><span>Cliente cadastrado</span></article>
+              <article><small>Total gasto</small><strong>{money(tutorTotalSpent(detail))}</strong><span>Em {detail.reservations.length} reservas</span></article>
+              <article><small>Avaliacao media</small><strong>5,0</strong><span>{Math.max(detail.reservations.length, 1)} atendimento(s)</span></article>
+            </div>
+
+            <section className="client-detail-section">
+              <div><h3>Pets cadastrados</h3><button>Ver todos os pets ({detail.pets.length})</button></div>
+              <div className="client-pets-grid">
+                {detail.pets.slice(0, 4).map((pet) => <article key={pet.id}><i>{pet.name.slice(0, 1)}</i><strong>{pet.name}</strong><span>{pet.breed || "Pet"} - {petAge(pet)}</span></article>)}
+                {detail.pets.length === 0 && <p>Nenhum pet vinculado ainda.</p>}
+              </div>
+            </section>
+
+            <section className="client-detail-section">
+              <div><h3>Ultimas reservas</h3><button>Ver todas</button></div>
+              <div className="client-reservations-list">
+                {detail.reservations.slice(0, 4).map((item) => <article key={item.id}><span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span><div><strong>{dateLabel(item.entry_date)}</strong><small>{item.pet_name}</small></div><em className={`reservation-status ${statusClass(item.status)}`}>{item.status}</em></article>)}
+                {detail.reservations.length === 0 && <p>Nenhuma reserva cadastrada.</p>}
+              </div>
+            </section>
+
+            <section className="client-note-box">
+              <h3>Anotacoes</h3>
+              <p>{detail.name} tem {detail.pets.length} pet(s) cadastrado(s) e {detail.reservations.length} reserva(s) no historico.</p>
+            </section>
+
+            <div className="client-detail-actions">
+              <button onClick={() => openEdit(detail)}><Edit3 size={16} />Editar tutor</button>
+              <button><Clock size={16} />Historico completo</button>
+              <a href={`https://wa.me/55${detail.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"><Mail size={16} />Enviar mensagem</a>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {(creating || editing) && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal client-edit-modal" onSubmit={saveTutor}>
+            <div className="reservation-detail-head"><h2>{editing ? "Editar tutor" : "Novo tutor"}</h2><button type="button" onClick={() => { setEditing(null); setCreating(false); }}><X size={18} /></button></div>
+            <label>Nome<input required value={form.full_name} onChange={(event) => setForm((current) => ({ ...current, full_name: event.target.value }))} /></label>
+            <label>Telefone<input value={form.phone || ""} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label>WhatsApp<input value={form.whatsapp || ""} onChange={(event) => setForm((current) => ({ ...current, whatsapp: event.target.value }))} /></label>
+            <label>E-mail<input type="email" value={form.email || ""} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
+            <label className="span-2">Endereco<input value={form.address || ""} onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))} /></label>
+            <label className="span-2">Contato de emergencia<input value={form.emergency_contact || ""} onChange={(event) => setForm((current) => ({ ...current, emergency_contact: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar tutor</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
 }
 
 type AdminPetsPageProps = {
@@ -714,10 +1001,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [petItems, setPetItems] = useState(pets);
   const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? 0);
   const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? 0);
+  const [selectedTutorKey, setSelectedTutorKey] = useState("");
+  const [extraTutors, setExtraTutors] = useState<TutorRecord[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
+  const tutors = useMemo(() => [...buildTutors(petItems, items), ...extraTutors], [petItems, items, extraTutors]);
 
   function adminHeaders() {
     return {
@@ -739,6 +1029,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function openUsers() {
     setAdminPage("users");
+  }
+
+  function openClients() {
+    setAdminPage("clients");
   }
 
   function openPets() {
@@ -889,6 +1183,56 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function createTutorRecord(payload: TutorPayload) {
+    const response = await fetch("/api/admin/tutors", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const created = await response.json();
+      setExtraTutors((current) => [{
+        key: `tutor-${created.id}`,
+        id: created.id,
+        name: created.full_name,
+        phone: created.phone || "",
+        email: created.email || "",
+        address: created.address || "",
+        created_at: created.created_at,
+        pets: [],
+        reservations: []
+      }, ...current]);
+      setSelectedTutorKey(`tutor-${created.id}`);
+    }
+  }
+
+  async function updateTutorRecord(id: number, payload: TutorPatch) {
+    const response = await fetch("/api/admin/tutors", {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ id, ...payload })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setExtraTutors((current) => current.map((tutor) => tutor.id === id ? {
+        ...tutor,
+        name: updated.full_name || tutor.name,
+        phone: updated.phone || tutor.phone,
+        email: updated.email || tutor.email,
+        address: updated.address || tutor.address
+      } : tutor));
+      setPetItems((current) => current.map((pet) => pet.tutor_id === id ? {
+        ...pet,
+        tutor_name: updated.full_name || pet.tutor_name,
+        tutor_phone: updated.phone || pet.tutor_phone,
+        tutor_email: updated.email || pet.tutor_email,
+        tutor_address: updated.address || pet.tutor_address
+      } : pet));
+    }
+  }
+
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setUserMessage("");
@@ -965,7 +1309,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
             <span>Gestao</span>
             <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
             <a className={adminPage === "pets" ? "active" : ""} onClick={openPets}><PawPrint size={18} />Pets</a>
-            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Clientes (Tutores)</a>
+            <a className={adminPage === "clients" ? "active" : ""} onClick={openClients}><Users size={18} />Clientes (Tutores)</a>
             <a onClick={() => openReservations("all")}><Scissors size={18} />Servicos</a>
             <a><Package size={18} />Pacotes</a>
             <a><ClipboardCheck size={18} />Relatorios diarios</a>
@@ -1007,7 +1351,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           adminName={adminName}
           onOpenReservations={(status = "all") => openReservations(status)}
           onOpenNewReservation={() => openReservations("all")}
-          onOpenUsers={openUsers}
+          onOpenUsers={openClients}
           onUpdateStatus={updateDashboardStatus}
           onExportReport={exportReport}
         />
@@ -1020,6 +1364,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           selectedPetId={selectedPetId}
           setSelectedPetId={setSelectedPetId}
           onPatch={updatePetFields}
+        />
+      )}
+
+      {adminPage === "clients" && (
+        <AdminTutorsPage
+          tutors={tutors}
+          selectedTutorKey={selectedTutorKey}
+          setSelectedTutorKey={setSelectedTutorKey}
+          onCreate={createTutorRecord}
+          onPatch={updateTutorRecord}
         />
       )}
 

@@ -6,6 +6,8 @@ export type PetOption = {
   tutor_name: string | null;
   tutor_phone: string | null;
   tutor_email: string | null;
+  tutor_id?: number | null;
+  tutor_address?: string | null;
   birth_date?: string | null;
   photo_url?: string | null;
   created_at?: string | null;
@@ -57,4 +59,13 @@ export type UserPayload = {
 
 export type DaycareSettings = {
   max_capacity: number;
+};
+
+export type TutorPayload = {
+  full_name: string;
+  phone?: string | null;
+  whatsapp?: string | null;
+  email?: string | null;
+  address?: string | null;
+  emergency_contact?: string | null;
 };
