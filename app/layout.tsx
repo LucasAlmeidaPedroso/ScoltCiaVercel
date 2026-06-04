@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
+
+const roundedFont = Nunito_Sans({
+  subsets: ["latin"],
+  weight: ["400", "600", "700", "800", "900"],
+  variable: "--font-rounded"
+});
 
 export const metadata: Metadata = {
   title: "Scolt&Cia | Day Care e Hospedagem",
@@ -11,15 +18,15 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>
+      <body className={roundedFont.variable}>
         <header className="site-header">
           <nav className="nav-shell">
             <Link href="/" className="brand">
               <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={72} height={72} />
-              <strong>Scolt&Cia</strong>
+              <span><strong>Scolt&Cia</strong><small>Day Care e Hospedagem</small></span>
             </Link>
             <div className="nav-links">
-              <Link href="/">Inicio</Link>
+              <Link className="nav-active" href="/">Inicio</Link>
               <Link href="/sobre">Sobre</Link>
               <Link href="/servicos">Servicos</Link>
               <Link href="/galeria">Galeria</Link>
