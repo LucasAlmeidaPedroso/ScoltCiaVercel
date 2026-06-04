@@ -68,14 +68,6 @@ export default function ContatoPage() {
           <span className="contact-eyebrow"><MapPin size={16} /> Onde estamos</span>
           <h2>Venha nos fazer uma visita!</h2>
           <p>Ambiente seguro, confortavel e preparado para o bem-estar do seu pet.</p>
-          <article className="contact-access-card">
-            <Car size={36} />
-            <div>
-              <strong>Estacionamento no local</strong>
-              <span>Mais comodidade para voce na hora da chegada e retirada.</span>
-            </div>
-            <Heart size={34} />
-          </article>
         </div>
 
         <div className="contact-map-card">
