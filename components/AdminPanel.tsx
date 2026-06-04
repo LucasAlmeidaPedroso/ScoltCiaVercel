@@ -3,8 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Activity, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Download, Eye, EyeOff, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, UserRound, Users, Utensils, X } from "lucide-react";
-import { ReservationForm } from "@/components/ReservationForm";
+import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppUser, DaycareSettings, PetOption, Reservation, UserPayload } from "@/lib/types";
 
@@ -96,6 +95,241 @@ function linePoints(values: number[], width = 620, height = 220) {
     const y = Math.round(height - (value / max) * (height - 42) - 22);
     return `${x},${y}`;
   }).join(" ");
+}
+
+function reservationDays(item: Reservation) {
+  const start = new Date(`${item.entry_date}T12:00:00`);
+  const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+}
+
+function reservationValue(item: Reservation) {
+  const kind = serviceKind(item.service);
+  const price = kind === "Hospedagem" ? 120 : kind === "Banho e Tosa" ? 120 : 85;
+  return price * reservationDays(item);
+}
+
+function statusClass(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("confirm")) return "confirmed";
+  if (normalized.includes("cancel") || normalized.includes("reprov")) return "canceled";
+  if (normalized.includes("conclu")) return "done";
+  return "pending";
+}
+
+function serviceIconClass(service: string) {
+  const kind = serviceKind(service);
+  if (kind === "Hospedagem") return "hosting";
+  if (kind === "Banho e Tosa") return "grooming";
+  return "daycare";
+}
+
+type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
+
+type AdminReservationsPageProps = {
+  reservations: Reservation[];
+  selectedId: number;
+  setSelectedId: (id: number) => void;
+  pendingCount: number;
+  initialStatus: string;
+  onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
+};
+
+function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, onPatch }: AdminReservationsPageProps) {
+  const [query, setQuery] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [page, setPage] = useState(1);
+  const [editing, setEditing] = useState<Reservation | null>(null);
+  const [editForm, setEditForm] = useState<ReservationPatch>({});
+  const perPage = 8;
+
+  const filteredReservations = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return reservations.filter((item) => {
+      const matchesText = !text || [item.pet_name, item.tutor_name, item.phone, item.email, item.service, String(item.id)].some((value) => String(value || "").toLowerCase().includes(text));
+      const matchesService = serviceFilter === "all" || serviceKind(item.service) === serviceFilter;
+      const matchesStatus = statusFilter === "all" || item.status === statusFilter || (statusFilter === "Aguardando aprovacao" && item.status === "Pendente");
+      const matchesStart = !startDate || item.entry_date >= startDate;
+      const matchesEnd = !endDate || item.entry_date <= endDate;
+      return matchesText && matchesService && matchesStatus && matchesStart && matchesEnd;
+    });
+  }, [reservations, query, serviceFilter, statusFilter, startDate, endDate]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredReservations.length / perPage));
+  const pageItems = filteredReservations.slice((page - 1) * perPage, page * perPage);
+  const selected = selectedId ? reservations.find((item) => item.id === selectedId) : undefined;
+  const totalRevenue = reservations.reduce((sum, item) => sum + reservationValue(item), 0);
+  const confirmed = reservations.filter((item) => item.status === "Confirmada").length;
+  const canceled = reservations.filter((item) => ["Cancelada", "Reprovada"].includes(item.status)).length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, serviceFilter, statusFilter, startDate, endDate]);
+
+  useEffect(() => {
+    setStatusFilter(initialStatus);
+  }, [initialStatus]);
+
+  useEffect(() => {
+    if (selectedId !== 0 && selected?.id && selected.id !== selectedId) setSelectedId(selected.id);
+  }, [selected, selectedId, setSelectedId]);
+
+  function openEdit(item: Reservation) {
+    setEditing(item);
+    setEditForm({
+      tutor_name: item.tutor_name,
+      phone: item.phone,
+      email: item.email || "",
+      pet_name: item.pet_name,
+      breed: item.breed || "",
+      size: item.size || "",
+      service: item.service,
+      entry_date: item.entry_date,
+      exit_date: item.exit_date || "",
+      expected_time: item.expected_time || "",
+      notes: item.notes || ""
+    });
+  }
+
+  async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    await onPatch(editing.id, { ...editForm, exit_date: editForm.exit_date || null });
+    setEditing(null);
+  }
+
+  return (
+    <section className="admin-main admin-reservations-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>Reservas</h1>
+          <p>Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, tutor ou pet..." /><Search size={20} /></label>
+          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
+        </div>
+      </header>
+
+      <div className="reservation-metrics">
+        <article><span className="aqua"><CalendarCheck size={28} /></span><div><small>Total de reservas</small><strong>{reservations.length}</strong><em>+ {filteredReservations.length} no filtro atual</em></div></article>
+        <article><span className="purple"><Clock size={28} /></span><div><small>Pendentes</small><strong>{pendingCount}</strong><em>Aguardando avaliacao</em></div></article>
+        <article><span className="yellow"><CheckCircle2 size={28} /></span><div><small>Confirmadas</small><strong>{confirmed}</strong><em>Prontas para receber</em></div></article>
+        <article><span className="pink"><X size={28} /></span><div><small>Canceladas</small><strong>{canceled}</strong><em>Canceladas ou recusadas</em></div></article>
+        <article><span className="aqua"><CreditCard size={28} /></span><div><small>Faturamento</small><strong>{money(totalRevenue)}</strong><em>Estimativa por reservas</em></div></article>
+      </div>
+
+      <div className="reservation-workspace">
+        <section className="reservation-table-card">
+          <div className="reservation-filterbar">
+            <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por tutor ou pet..." /></label>
+            <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
+              <option value="all">Todos os servicos</option>
+              <option value="Day Care">Day Care</option>
+              <option value="Hospedagem">Hospedagem</option>
+              <option value="Banho e Tosa">Banho e Tosa</option>
+            </select>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="all">Todos os status</option>
+              {statusTabs.filter((item) => item.status !== "all").map((item) => <option key={item.status} value={item.status}>{item.label}</option>)}
+            </select>
+            <label><CalendarDays size={18} /><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
+            <label><CalendarDays size={18} /><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
+            <button onClick={() => { setQuery(""); setServiceFilter("all"); setStatusFilter("all"); setStartDate(""); setEndDate(""); }}><Filter size={18} />Filtros</button>
+          </div>
+
+          <div className="reservation-table">
+            <div className="reservation-table-head">
+              <span></span><span>Reserva</span><span>Tutor</span><span>Pet</span><span>Servico</span><span>Periodo</span><span>Status</span><span>Valor</span><span></span>
+            </div>
+            {pageItems.map((item) => (
+              <button key={item.id} className={`reservation-table-row ${selected?.id === item.id ? "active" : ""}`} onClick={() => setSelectedId(item.id)}>
+                <span><input type="checkbox" checked={selected?.id === item.id} onChange={() => setSelectedId(item.id)} /></span>
+                <span><strong>#{String(item.id).padStart(4, "0")}</strong><small>{dateLabel(item.created_at?.slice(0, 10) || item.entry_date)}</small></span>
+                <span><b>{item.tutor_name}</b><small>{item.phone}</small></span>
+                <span className="reservation-pet-cell"><i>{item.pet_name.slice(0, 1)}</i><span><b>{item.pet_name}</b><small>{item.breed || item.size || "Pet"}</small></span></span>
+                <span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span>
+                <span><b>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</b><small>ate {dateLabel(item.exit_date || item.entry_date)}</small></span>
+                <span><em className={`reservation-status ${statusClass(item.status)}`}>{item.status}</em></span>
+                <span><b>{money(reservationValue(item))}</b></span>
+                <span><MoreVertical size={18} /></span>
+              </button>
+            ))}
+            {pageItems.length === 0 && <p className="admin-empty">Nenhuma reserva encontrada com esses filtros.</p>}
+          </div>
+
+          <footer className="reservation-pagination">
+            <span>Mostrando {pageItems.length ? (page - 1) * perPage + 1 : 0} a {Math.min(page * perPage, filteredReservations.length)} de {filteredReservations.length} reservas</span>
+            <div>
+              <button disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))}><ArrowLeft size={16} /></button>
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, index) => index + 1).map((item) => <button key={item} className={page === item ? "active" : ""} onClick={() => setPage(item)}>{item}</button>)}
+              <button disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}><ArrowRight size={16} /></button>
+            </div>
+          </footer>
+        </section>
+
+        <aside className="reservation-detail-card">
+          {selected ? (
+            <>
+              <div className="reservation-detail-head">
+                <h2>Reserva #{String(selected.id).padStart(4, "0")}</h2>
+                <em className={`reservation-status ${statusClass(selected.status)}`}>{selected.status}</em>
+                <button onClick={() => setSelectedId(0)}><X size={18} /></button>
+              </div>
+              <div className="reservation-detail-pet">
+                <div className="reservation-detail-avatar">{selected.pet_name.slice(0, 1)}</div>
+                <div><strong>{selected.pet_name}</strong><span>{selected.breed || selected.size || "Pet cadastrado"}</span><em className={`reservation-service ${serviceIconClass(selected.service)}`}>{serviceKind(selected.service)}</em></div>
+              </div>
+              <div className="reservation-detail-period">
+                <strong>{dateLabel(selected.entry_date)} as {selected.expected_time || "--:--"}</strong>
+                <span>ate {dateLabel(selected.exit_date || selected.entry_date)}</span>
+                <small>{reservationDays(selected)} diaria(s)</small>
+              </div>
+              <div className="reservation-detail-section">
+                <h3>Tutor</h3>
+                <p><strong>{selected.tutor_name}</strong><span>{selected.phone}</span><span>{selected.email || "E-mail nao informado"}</span></p>
+              </div>
+              <div className="reservation-detail-section">
+                <h3>Informacoes da reserva</h3>
+                <dl><dt>Data da reserva</dt><dd>{dateLabel(selected.created_at?.slice(0, 10) || selected.entry_date)} as {selected.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Vila Mariana</dd><dt>Pacote</dt><dd>{serviceKind(selected.service)} Premium</dd><dt>Valor total</dt><dd>{money(reservationValue(selected))}</dd><dt>Status do pagamento</dt><dd>Pago</dd></dl>
+              </div>
+              <div className="reservation-detail-section">
+                <h3>Observacoes</h3>
+                <p>{selected.notes || "Sem observacoes cadastradas."}</p>
+              </div>
+              <div className="reservation-detail-actions">
+                <button className="edit" onClick={() => openEdit(selected)}><Edit3 size={16} />Editar reserva</button>
+                <button onClick={() => onPatch(selected.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Check-in</button>
+                <button className="danger" onClick={() => onPatch(selected.id, { status: "Cancelada" })}><Trash2 size={16} />Cancelar reserva</button>
+              </div>
+            </>
+          ) : <p className="admin-empty">Selecione uma reserva para ver detalhes.</p>}
+        </aside>
+      </div>
+
+      {editing && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal" onSubmit={saveEdit}>
+            <div className="reservation-detail-head"><h2>Editar reserva</h2><button type="button" onClick={() => setEditing(null)}><X size={18} /></button></div>
+            <label>Tutor<input value={editForm.tutor_name || ""} onChange={(event) => setEditForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+            <label>Telefone<input value={editForm.phone || ""} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label>E-mail<input value={editForm.email || ""} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} /></label>
+            <label>Pet<input value={editForm.pet_name || ""} onChange={(event) => setEditForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
+            <label>Servico<select value={editForm.service || "Day Care"} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option></select></label>
+            <label>Entrada<input type="date" value={editForm.entry_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
+            <label>Saida<input type="date" value={editForm.exit_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
+            <label>Horario<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label className="span-2">Observacoes<textarea rows={4} value={editForm.notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar alteracoes</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
 }
 
 type DashboardHomeProps = {
@@ -269,18 +503,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [unlocked, setUnlocked] = useState(false);
   const [adminName, setAdminName] = useState("Marina");
   const [adminPage, setAdminPage] = useState<AdminPageKey>("dashboard");
+  const [reservationInitialStatus, setReservationInitialStatus] = useState("all");
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
   const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? 0);
-  const [tab, setTab] = useState("Aguardando aprovacao");
   const [users, setUsers] = useState<AppUser[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
-  const [maxCapacity, setMaxCapacity] = useState(settings.max_capacity);
-  const [settingsMessage, setSettingsMessage] = useState("");
-  const filtered = useMemo(() => tab === "all" ? items : items.filter((item) => item.status === tab || (tab === "Aguardando aprovacao" && item.status === "Pendente")), [items, tab]);
-  const selected = items.find((item) => item.id === selectedId) ?? filtered[0] ?? items[0];
-  const occupied = activeCapacityCount(items);
+  const [maxCapacity] = useState(settings.max_capacity);
 
   function adminHeaders() {
     return {
@@ -296,7 +526,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function openReservations(status = "all") {
     setAdminPage("reservations");
-    setTab(status);
+    setReservationInitialStatus(status);
+    if (status !== "all") setSelectedId(items.find((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente"))?.id ?? 0);
   }
 
   function openUsers() {
@@ -417,24 +648,15 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     });
   }
 
-  async function setStatus(id: number, action: "approve" | "reject") {
-    const response = await fetch(`/api/admin/reservations/${action}`, {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id })
-    });
-
-    if (response.ok) {
-      const status = action === "approve" ? "Confirmada" : "Reprovada";
-      setItems((current) => current.map((item) => item.id === id ? { ...item, status } : item));
-    }
+  async function updateDashboardStatus(id: number, status: string) {
+    await updateReservationFields(id, { status });
   }
 
-  async function updateDashboardStatus(id: number, status: string) {
+  async function updateReservationFields(id: number, payload: ReservationPatch) {
     const response = await fetch("/api/admin/reservations", {
       method: "PATCH",
       headers: adminHeaders(),
-      body: JSON.stringify({ id, status })
+      body: JSON.stringify({ id, ...payload })
     });
 
     if (response.ok) {
@@ -461,19 +683,6 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     } else {
       setUserMessage("Nao foi possivel cadastrar o usuario.");
     }
-  }
-
-  async function saveSettings(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSettingsMessage("");
-
-    const response = await fetch("/api/admin/settings", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify({ max_capacity: maxCapacity })
-    });
-
-    setSettingsMessage(response.ok ? "Lotacao maxima atualizada." : "Nao foi possivel salvar a lotacao.");
   }
 
   if (!unlocked) {
@@ -581,94 +790,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       )}
 
       {adminPage === "reservations" && (
-      <section className="admin-main admin-legacy-panel">
-        <header className="admin-topbar">
-          <div>
-            <h1>Gestao de Reservas</h1>
-            <p>Acompanhe e gerencie todas as solicitacoes de reservas.</p>
-          </div>
-          <div className="admin-actions">
-            <button className="icon-button"><Bell size={18} /><span>{countByStatus("Aguardando aprovacao")}</span></button>
-            <a className="primary-button" href="#nova-reserva">Nova reserva</a>
-          </div>
-        </header>
-
-        <div className="capacity-card">
-          <div><strong>Lotacao da creche</strong><span>{occupied} de {maxCapacity} vagas ocupadas hoje/periodo ativo</span></div>
-          <form onSubmit={saveSettings}>
-            <label>Lotacao maxima<input type="number" min={1} value={maxCapacity} onChange={(event) => setMaxCapacity(Number(event.target.value))} /></label>
-            <button className="secondary-button">Salvar</button>
-          </form>
-          {settingsMessage && <strong>{settingsMessage}</strong>}
-        </div>
-
-        <div className="reservation-tabs">
-          {statusTabs.map((item) => (
-            <button key={item.status} className={tab === item.status ? "active" : ""} onClick={() => setTab(item.status)}>
-              {item.label}<span>{countByStatus(item.status)}</span>
-            </button>
-          ))}
-        </div>
-
-        <div className="approval-workspace">
-          <div className="approval-list">
-            {filtered.length === 0 && <p>Nenhuma reserva nesta categoria.</p>}
-            {filtered.map((reservation) => (
-              <button key={reservation.id} className={`approval-item ${selected?.id === reservation.id ? "active" : ""}`} onClick={() => setSelectedId(reservation.id)}>
-                <div className="pet-avatar">{reservation.pet_name.slice(0, 1)}</div>
-                <div>
-                  <strong>{reservation.pet_name}</strong>
-                  <span>{reservation.breed || reservation.size || "Pet"}</span>
-                  <small>{reservation.status}</small>
-                  <p>Check-in: {reservation.entry_date}</p>
-                  <p>Check-out: {reservation.exit_date || "-"}</p>
-                </div>
-                <ChevronRight size={18} />
-              </button>
-            ))}
-          </div>
-
-          <div className="approval-detail">
-            {selected ? (
-              <>
-                <div className="approval-alert"><Clock size={26} /><div><strong>{selected.status}</strong><span>Essa solicitacao aguarda avaliacao do administrador.</span></div></div>
-                <div className="pet-detail-head">
-                  <div className="pet-photo">{selected.pet_name.slice(0, 1)}</div>
-                  <div><h2>{selected.pet_name}</h2><span>{selected.breed || selected.size || "Pet cadastrado"}</span><p>{selected.size || "Porte nao informado"} - {selected.service}</p></div>
-                  <div className="requester"><strong>Solicitado por</strong><p>{selected.tutor_name}</p><p>{selected.phone}</p><p>{selected.email}</p></div>
-                </div>
-                <div className="detail-grid">
-                  <div>
-                    <h3>Detalhes da hospedagem</h3>
-                    <p><strong>Tipo de servico</strong><span>{selected.service}</span></p>
-                    <p><strong>Check-in</strong><span>{selected.entry_date} - {selected.expected_time || "-"}</span></p>
-                    <p><strong>Check-out</strong><span>{selected.exit_date || "-"}</span></p>
-                    <p><strong>Observacoes</strong><span>{selected.notes || "Sem observacoes."}</span></p>
-                  </div>
-                  <div className="price-box">
-                    <p><span>Valor das diarias</span><strong>{money(120)}</strong></p>
-                    <p><span>Quantidade de diarias</span><strong>3</strong></p>
-                    <p><span>Desconto</span><strong>{money(0)}</strong></p>
-                    <hr />
-                    <p><span>Total</span><strong>{money(360)}</strong></p>
-                  </div>
-                </div>
-                <div className="approval-actions">
-                  <button className="reject-action" onClick={() => setStatus(selected.id, "reject")}><X size={18} />Recusar solicitacao</button>
-                  <button className="approve-action" onClick={() => setStatus(selected.id, "approve")}><Check size={18} />Aprovar hospedagem</button>
-                </div>
-                <div className="approval-note">Ao aprovar, o cliente recebera uma confirmacao e as proximas instrucoes.</div>
-              </>
-            ) : <p>Nenhuma reserva selecionada.</p>}
-          </div>
-        </div>
-
-        <section id="nova-reserva" className="admin-card">
-          <h2>Cadastrar reserva pelo admin</h2>
-          <ReservationForm pets={pets} reservations={items} settings={{ max_capacity: maxCapacity }} admin adminAuth={{ email, password, accessToken }} />
-        </section>
-
-      </section>
+        <AdminReservationsPage
+          reservations={items}
+          selectedId={selectedId}
+          setSelectedId={setSelectedId}
+          pendingCount={countByStatus("Aguardando aprovacao")}
+          initialStatus={reservationInitialStatus}
+          onPatch={updateReservationFields}
+        />
       )}
 
       {adminPage === "users" && (
