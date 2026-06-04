@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Download, Eye, EyeOff, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, UserRound, Users, Utensils, X } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
@@ -13,6 +13,8 @@ type Props = {
   reservations: Reservation[];
   settings: DaycareSettings;
 };
+
+type AdminPageKey = "dashboard" | "reservations" | "users";
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -266,7 +268,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [remember, setRemember] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [adminName, setAdminName] = useState("Marina");
-  const [showLegacy, setShowLegacy] = useState(false);
+  const [adminPage, setAdminPage] = useState<AdminPageKey>("dashboard");
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
   const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? 0);
@@ -276,7 +278,6 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity, setMaxCapacity] = useState(settings.max_capacity);
   const [settingsMessage, setSettingsMessage] = useState("");
-  const legacyRef = useRef<HTMLElement | null>(null);
   const filtered = useMemo(() => tab === "all" ? items : items.filter((item) => item.status === tab || (tab === "Aguardando aprovacao" && item.status === "Pendente")), [items, tab]);
   const selected = items.find((item) => item.id === selectedId) ?? filtered[0] ?? items[0];
   const occupied = activeCapacityCount(items);
@@ -293,16 +294,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     };
   }
 
-  function openLegacy(status = "all", target?: string) {
-    setShowLegacy(true);
+  function openReservations(status = "all") {
+    setAdminPage("reservations");
     setTab(status);
-    requestAnimationFrame(() => {
-      if (target) {
-        document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      } else {
-        legacyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
+  }
+
+  function openUsers() {
+    setAdminPage("users");
   }
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
@@ -529,21 +527,21 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
         </div>
         <nav className="admin-nav">
-          <a className="active" onClick={() => setShowLegacy(false)}><LayoutDashboard size={18} />Dashboard</a>
+          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => setAdminPage("dashboard")}><LayoutDashboard size={18} />Dashboard</a>
           <div className="admin-nav-section">
             <span>Gestao</span>
-            <a onClick={() => openLegacy("all")}><CalendarCheck size={18} />Reservas</a>
-            <a onClick={() => openLegacy("all")}><PawPrint size={18} />Pets</a>
-            <a onClick={() => openLegacy("all", "usuarios-admin")}><Users size={18} />Clientes (Tutores)</a>
-            <a onClick={() => openLegacy("all")}><Scissors size={18} />Servicos</a>
+            <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
+            <a onClick={() => openReservations("all")}><PawPrint size={18} />Pets</a>
+            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Clientes (Tutores)</a>
+            <a onClick={() => openReservations("all")}><Scissors size={18} />Servicos</a>
             <a><Package size={18} />Pacotes</a>
             <a><ClipboardCheck size={18} />Relatorios diarios</a>
           </div>
           <div className="admin-nav-section">
             <span>Operacao</span>
-            <a onClick={() => openLegacy("all")}><CalendarDays size={18} />Agenda</a>
-            <a onClick={() => openLegacy("Confirmada")}><CheckCircle2 size={18} />Check-in / Check-out</a>
-            <a onClick={() => openLegacy("Em andamento")}><Activity size={18} />Atividades</a>
+            <a onClick={() => openReservations("all")}><CalendarDays size={18} />Agenda</a>
+            <a onClick={() => openReservations("Confirmada")}><CheckCircle2 size={18} />Check-in / Check-out</a>
+            <a onClick={() => openReservations("Em andamento")}><Activity size={18} />Atividades</a>
             <a><Utensils size={18} />Alimentacao</a>
             <a><Scissors size={18} />Banho e Tosa</a>
           </div>
@@ -567,19 +565,23 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         </div>
       </aside>
 
-      <AdminDashboardHome
-        reservations={items}
-        pets={pets}
-        users={users}
-        maxCapacity={maxCapacity}
-        adminName={adminName}
-        onOpenReservations={(status = "all") => openLegacy(status)}
-        onOpenNewReservation={() => openLegacy("all", "nova-reserva")}
-        onOpenUsers={() => openLegacy("all", "usuarios-admin")}
-        onUpdateStatus={updateDashboardStatus}
-        onExportReport={exportReport}
-      />
-      <section ref={legacyRef} className={`admin-main admin-legacy-panel ${showLegacy ? "" : "admin-legacy-hidden"}`}>
+      {adminPage === "dashboard" && (
+        <AdminDashboardHome
+          reservations={items}
+          pets={pets}
+          users={users}
+          maxCapacity={maxCapacity}
+          adminName={adminName}
+          onOpenReservations={(status = "all") => openReservations(status)}
+          onOpenNewReservation={() => openReservations("all")}
+          onOpenUsers={openUsers}
+          onUpdateStatus={updateDashboardStatus}
+          onExportReport={exportReport}
+        />
+      )}
+
+      {adminPage === "reservations" && (
+      <section className="admin-main admin-legacy-panel">
         <header className="admin-topbar">
           <div>
             <h1>Gestao de Reservas</h1>
@@ -666,29 +668,42 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <ReservationForm pets={pets} reservations={items} settings={{ max_capacity: maxCapacity }} admin adminAuth={{ email, password, accessToken }} />
         </section>
 
-        <section id="usuarios-admin" className="admin-card">
-          <h2>Usuarios do sistema</h2>
-          <form className="compact-form" onSubmit={createAdminUser}>
-            <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
-            <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
-            <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
-            <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value as UserPayload["role"] }))}>
-              <option value="equipe">Equipe</option>
-              <option value="admin">Admin</option>
-              <option value="tutor">Tutor</option>
-            </select>
-            <button className="secondary-button">Cadastrar usuario</button>
-          </form>
-          {userMessage && <strong>{userMessage}</strong>}
-          <div className="admin-list">
-            {users.map((user) => (
-              <article className="reservation-row" key={user.id}>
-                <div><strong>{user.name}</strong><p>{user.email} - {user.role} - {user.is_active ? "ativo" : "inativo"}</p></div>
-              </article>
-            ))}
-          </div>
-        </section>
       </section>
+      )}
+
+      {adminPage === "users" && (
+        <section className="admin-main admin-legacy-panel">
+          <header className="admin-topbar">
+            <div>
+              <h1>Clientes e usuarios</h1>
+              <p>Gerencie acessos da equipe, tutores e administradores.</p>
+            </div>
+          </header>
+
+          <section id="usuarios-admin" className="admin-card">
+            <h2>Usuarios do sistema</h2>
+            <form className="compact-form" onSubmit={createAdminUser}>
+              <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
+              <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
+              <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
+              <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value as UserPayload["role"] }))}>
+                <option value="equipe">Equipe</option>
+                <option value="admin">Admin</option>
+                <option value="tutor">Tutor</option>
+              </select>
+              <button className="secondary-button">Cadastrar usuario</button>
+            </form>
+            {userMessage && <strong>{userMessage}</strong>}
+            <div className="admin-list">
+              {users.map((user) => (
+                <article className="reservation-row" key={user.id}>
+                  <div><strong>{user.name}</strong><p>{user.email} - {user.role} - {user.is_active ? "ativo" : "inativo"}</p></div>
+                </article>
+              ))}
+            </div>
+          </section>
+        </section>
+      )}
     </div>
   );
 }
