@@ -69,6 +69,9 @@ select
   pets.name,
   pets.breed,
   pets.size,
+  pets.birth_date,
+  pets.photo_url,
+  pets.created_at,
   tutors.full_name as tutor_name,
   tutors.phone as tutor_phone,
   tutors.email as tutor_email

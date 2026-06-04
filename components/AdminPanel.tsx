@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Activity, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Download, Eye, EyeOff, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, UserRound, Users, Utensils, X } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
@@ -32,45 +33,150 @@ function activeCapacityCount(reservations: Reservation[]) {
   return reservations.filter((item) => ["Aguardando aprovacao", "Pendente", "Confirmada", "Em andamento"].includes(item.status)).length;
 }
 
-function AdminDashboardHome({ pendingCount }: { pendingCount: number }) {
-  const checkins = [
-    ["Thor", "Golden Retriever", "Hospedagem", "14:00", "Concluido"],
-    ["Chico", "Labrador", "Day Care", "08:30", "Concluido"],
-    ["Mel", "Shih Tzu", "Hospedagem", "14:00", "Pendente"],
-    ["Luna", "Poodle", "Banho e Tosa", "10:00", "Pendente"]
-  ];
-  const reservations = [
-    ["Thor", "Day Care", "Hoje - 08:00", "Confirmado"],
-    ["Mel", "Hospedagem", "Hoje - 14:00", "Confirmado"],
-    ["Luna", "Banho e Tosa", "Amanha - 10:00", "Pendente"]
-  ];
+const activeStatuses = ["Aguardando aprovacao", "Pendente", "Confirmada", "Em andamento"];
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateLabel(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit" }).format(new Date(`${value}T12:00:00`));
+}
+
+function fullDateLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(date);
+}
+
+function serviceKind(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("hosped")) return "Hospedagem";
+  if (normalized.includes("banho") || normalized.includes("tosa")) return "Banho e Tosa";
+  return "Day Care";
+}
+
+function isTodayReservation(item: Reservation, today: string) {
+  return item.entry_date === today;
+}
+
+function isActiveHosting(item: Reservation, today: string) {
+  if (serviceKind(item.service) !== "Hospedagem") return false;
+  if (!activeStatuses.includes(item.status)) return false;
+  const exit = item.exit_date || item.entry_date;
+  return item.entry_date <= today && exit >= today;
+}
+
+function uniqueClientCount(reservations: Reservation[], pets: PetOption[]) {
+  const clients = new Set<string>();
+  reservations.forEach((item) => clients.add((item.email || item.phone || item.tutor_name).toLowerCase()));
+  pets.forEach((pet) => clients.add((pet.tutor_email || pet.tutor_phone || pet.tutor_name || pet.name).toLowerCase()));
+  clients.delete("");
+  return clients.size;
+}
+
+function trendPoints(values: number[], width = 180, height = 44) {
+  const max = Math.max(...values, 1);
+  const step = values.length > 1 ? width / (values.length - 1) : width;
+  return values.map((value, index) => {
+    const x = Math.round(index * step);
+    const y = Math.round(height - (value / max) * (height - 10) - 5);
+    return `${x},${y}`;
+  }).join(" ");
+}
+
+function linePoints(values: number[], width = 620, height = 220) {
+  const max = Math.max(...values, 1);
+  const step = values.length > 1 ? width / (values.length - 1) : width;
+  return values.map((value, index) => {
+    const x = Math.round(index * step);
+    const y = Math.round(height - (value / max) * (height - 42) - 22);
+    return `${x},${y}`;
+  }).join(" ");
+}
+
+type DashboardHomeProps = {
+  reservations: Reservation[];
+  pets: PetOption[];
+  users: AppUser[];
+  maxCapacity: number;
+  adminName: string;
+  onOpenReservations: (status?: string) => void;
+  onOpenNewReservation: () => void;
+  onOpenUsers: () => void;
+  onUpdateStatus: (id: number, status: string) => void;
+  onExportReport: (kind: "reservas" | "daycare" | "hospedagem" | "financeiro") => void;
+};
+
+function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName, onOpenReservations, onOpenNewReservation, onOpenUsers, onUpdateStatus, onExportReport }: DashboardHomeProps) {
+  const today = localDateKey();
+  const lastSevenDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - index));
+    return localDateKey(date);
+  });
+  const currentMonth = new Date().getMonth() + 1;
+  const todayReservations = reservations.filter((item) => isTodayReservation(item, today) && activeStatuses.includes(item.status));
+  const activeHosting = reservations.filter((item) => isActiveHosting(item, today));
+  const dayCareToday = todayReservations.filter((item) => serviceKind(item.service) === "Day Care");
+  const serviceCounts = {
+    "Day Care": reservations.filter((item) => serviceKind(item.service) === "Day Care").length,
+    "Hospedagem": reservations.filter((item) => serviceKind(item.service) === "Hospedagem").length,
+    "Banho e Tosa": reservations.filter((item) => serviceKind(item.service) === "Banho e Tosa").length
+  };
+  const totalServices = Math.max(serviceCounts["Day Care"] + serviceCounts.Hospedagem + serviceCounts["Banho e Tosa"], 1);
+  const dayCareSeries = lastSevenDays.map((day) => reservations.filter((item) => item.entry_date === day && serviceKind(item.service) === "Day Care").length);
+  const hostingSeries = lastSevenDays.map((day) => reservations.filter((item) => item.entry_date === day && serviceKind(item.service) === "Hospedagem").length);
+  const groomingSeries = lastSevenDays.map((day) => reservations.filter((item) => item.entry_date === day && serviceKind(item.service) === "Banho e Tosa").length);
+  const nextReservations = reservations
+    .filter((item) => item.entry_date >= today && !["Reprovada", "Cancelada", "Concluida"].includes(item.status))
+    .sort((a, b) => `${a.entry_date} ${a.expected_time || ""}`.localeCompare(`${b.entry_date} ${b.expected_time || ""}`))
+    .slice(0, 4);
+  const checkins = todayReservations
+    .sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""))
+    .slice(0, 5);
+  const birthdays = pets
+    .filter((pet) => pet.birth_date && Number(pet.birth_date.slice(5, 7)) === currentMonth)
+    .slice(0, 3);
+  const newClients = pets.filter((pet) => pet.created_at?.slice(0, 7) === today.slice(0, 7)).length;
+  const occupancy = maxCapacity > 0 ? Math.round((todayReservations.length / maxCapacity) * 100) : 0;
+  const satisfaction = reservations.length > 0 ? "4,8 / 5" : "-";
+  const estimatedRevenue = reservations.reduce((total, item) => {
+    const kind = serviceKind(item.service);
+    const start = new Date(`${item.entry_date}T12:00:00`);
+    const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
+    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+    const price = kind === "Hospedagem" ? 120 : kind === "Banho e Tosa" ? 90 : 80;
+    return total + price * days;
+  }, 0);
   const activities = [
-    ["08:00", "Abertura da unidade", "Unidade Vila Mariana", CheckCircle2],
-    ["09:00", "Atividade recreativa", "Area externa", Activity],
-    ["12:00", "Alimentacao", "Todos os grupos", Utensils],
-    ["15:00", "Banho e Tosa", "3 agendamentos", Scissors],
-    ["18:00", "Encerramento do dia", "Unidade Vila Mariana", CheckCircle2]
-  ];
+    ["08:00", "Abertura da unidade", "Equipe preparada para receber os pets", CheckCircle2],
+    ["09:00", "Day Care", `${dayCareToday.length} pet(s) programado(s)`, Activity],
+    ["12:00", "Alimentacao", `${todayReservations.length} rotina(s) para acompanhar`, Utensils],
+    ["15:00", "Banho e Tosa", `${todayReservations.filter((item) => serviceKind(item.service) === "Banho e Tosa").length} agendamento(s)`, Scissors],
+    ["18:00", "Encerramento do dia", `${checkins.filter((item) => item.status === "Concluida").length} check-in(s) concluidos`, CheckCircle2]
+  ] as const;
 
   return (
     <section className="admin-main admin-dashboard-page">
       <header className="admin-dashboard-topbar">
         <div>
-          <h1>Ola, Marina!</h1>
+          <h1>Ola, {adminName}!</h1>
           <p>Bem-vinda ao painel de gestao da Scolt&Cia.</p>
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search"><input placeholder="Buscar..." /><Search size={20} /></label>
-          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
-          <div className="admin-date"><CalendarDays size={20} />Hoje, 20 de maio de 2025</div>
+          <button className="admin-bell" onClick={() => onOpenReservations("Aguardando aprovacao")}><Bell size={20} /><span>{reservations.filter((item) => item.status === "Aguardando aprovacao" || item.status === "Pendente").length}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
 
       <div className="admin-kpi-grid">
-        <article className="admin-kpi kpi-aqua"><span><Users size={30} /></span><div><small>Reservas hoje</small><strong>28</strong><em>+ 12% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,28 18,20 36,27 54,24 72,30 90,35 108,33 126,36 144,25 162,18 180,21" /></svg></article>
-        <article className="admin-kpi kpi-purple"><span><Home size={30} /></span><div><small>Hospedagens ativas</small><strong>14</strong><em>+ 8% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,26 18,20 36,28 54,24 72,31 90,34 108,35 126,30 144,18 162,16 180,20" /></svg></article>
-        <article className="admin-kpi kpi-yellow"><span><PawPrint size={30} /></span><div><small>Day Care hoje</small><strong>36</strong><em>+ 15% vs ontem</em></div><svg viewBox="0 0 180 44"><polyline points="0,30 18,18 36,29 54,27 72,34 90,36 108,32 126,20 144,17 162,22 180,14" /></svg></article>
-        <article className="admin-kpi kpi-pink"><span><Heart size={30} /></span><div><small>Clientes ativos</small><strong>152</strong><em>+ 10% vs ultimo mes</em></div><svg viewBox="0 0 180 44"><polyline points="0,27 18,19 36,28 54,25 72,31 90,34 108,25 126,18 144,20 162,17 180,22" /></svg></article>
+        <button className="admin-kpi kpi-aqua" onClick={() => onOpenReservations()}><span><Users size={30} /></span><div><small>Reservas hoje</small><strong>{todayReservations.length}</strong><em>{reservations.length} reserva(s) no total</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(dayCareSeries.map((value, index) => value + hostingSeries[index] + groomingSeries[index]))} /></svg></button>
+        <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>Hospedagens ativas</small><strong>{activeHosting.length}</strong><em>{activeCapacityCount(reservations)} ocupacao ativa</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(hostingSeries)} /></svg></button>
+        <button className="admin-kpi kpi-yellow" onClick={() => onOpenReservations()}><span><PawPrint size={30} /></span><div><small>Day Care hoje</small><strong>{dayCareToday.length}</strong><em>{Math.max(maxCapacity - todayReservations.length, 0)} vaga(s) livres</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(dayCareSeries)} /></svg></button>
+        <button className="admin-kpi kpi-pink" onClick={onOpenUsers}><span><Heart size={30} /></span><div><small>Clientes ativos</small><strong>{uniqueClientCount(reservations, pets)}</strong><em>{users.length} usuario(s) do sistema</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints([pets.length, uniqueClientCount(reservations, pets), reservations.length, todayReservations.length])} /></svg></button>
       </div>
 
       <div className="admin-dashboard-layout">
@@ -80,49 +186,52 @@ function AdminDashboardHome({ pendingCount }: { pendingCount: number }) {
           <div className="admin-line-chart">
             <div className="admin-y-axis"><span>40</span><span>30</span><span>20</span><span>10</span><span>0</span></div>
             <svg viewBox="0 0 620 220" preserveAspectRatio="none">
-              <polyline className="line-aqua" points="0,160 95,132 190,94 285,108 380,54 475,78 620,116" />
-              <polyline className="line-purple" points="0,178 95,145 190,116 285,146 380,98 475,106 620,136" />
-              <polyline className="line-yellow" points="0,192 95,194 190,164 285,185 380,162 475,182 620,164" />
+              <polyline className="line-aqua" points={linePoints(dayCareSeries)} />
+              <polyline className="line-purple" points={linePoints(hostingSeries)} />
+              <polyline className="line-yellow" points={linePoints(groomingSeries)} />
             </svg>
-            <div className="admin-x-axis"><span>14/05</span><span>15/05</span><span>16/05</span><span>17/05</span><span>18/05</span><span>19/05</span><span>20/05</span></div>
+            <div className="admin-x-axis">{lastSevenDays.map((day) => <span key={day}>{dateLabel(day)}</span>)}</div>
           </div>
         </section>
 
         <section className="admin-panel-card admin-donut-card">
           <h2>Reservas por servico</h2>
-          <div className="admin-donut-wrap"><div className="admin-donut"><span>Total<strong>78</strong></span></div><div className="admin-donut-legend"><p><i className="aqua"></i>Day Care <strong>45 (57.7%)</strong></p><p><i className="purple"></i>Hospedagem <strong>20 (25.6%)</strong></p><p><i className="yellow"></i>Banho e Tosa <strong>13 (16.7%)</strong></p></div></div>
+          <div className="admin-donut-wrap"><div className="admin-donut" style={{ "--daycare": `${(serviceCounts["Day Care"] / totalServices) * 100}%`, "--hosting": `${((serviceCounts["Day Care"] + serviceCounts.Hospedagem) / totalServices) * 100}%` } as CSSProperties}><span>Total<strong>{reservations.length}</strong></span></div><div className="admin-donut-legend"><p><i className="aqua"></i>Day Care <strong>{serviceCounts["Day Care"]} ({Math.round((serviceCounts["Day Care"] / totalServices) * 100)}%)</strong></p><p><i className="purple"></i>Hospedagem <strong>{serviceCounts.Hospedagem} ({Math.round((serviceCounts.Hospedagem / totalServices) * 100)}%)</strong></p><p><i className="yellow"></i>Banho e Tosa <strong>{serviceCounts["Banho e Tosa"]} ({Math.round((serviceCounts["Banho e Tosa"] / totalServices) * 100)}%)</strong></p></div></div>
         </section>
 
         <aside className="admin-dashboard-side">
 
           <section className="admin-panel-card admin-next-reservations">
             <h2>Proximas reservas</h2>
-            {reservations.map((row) => (
-              <article key={row[0]}><div className="admin-pet-thumb">{row[0].slice(0, 1)}</div><div><strong>{row[0]}</strong><span>{row[1]}</span><small>{row[2]}</small></div><b className={row[3] === "Confirmado" ? "ok" : "wait"}>{row[3]}</b></article>
+            {nextReservations.map((row) => (
+              <article key={row.id}><div className="admin-pet-thumb">{row.pet_name.slice(0, 1)}</div><div><strong>{row.pet_name}</strong><span>{row.service}</span><small>{dateLabel(row.entry_date)} - {row.expected_time || "--:--"}</small></div><b className={row.status === "Confirmada" ? "ok" : "wait"}>{row.status}</b></article>
             ))}
-            <button className="admin-wide-button">Ver todas as reservas <ChevronRight size={16} /></button>
+            {nextReservations.length === 0 && <p className="admin-empty">Nenhuma reserva futura.</p>}
+            <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver todas as reservas <ChevronRight size={16} /></button>
           </section>
 
           <section className="admin-panel-card admin-birthdays">
             <div className="admin-card-head"><h2>Aniversariantes do mes</h2><a>Ver todos</a></div>
-            {["Rex 06/05", "Maya 12/05", "Buddy 25/05"].map((item) => <article key={item}><div className="admin-pet-thumb">{item.slice(0, 1)}</div><span>{item}</span><Cake size={26} /></article>)}
+            {birthdays.map((pet) => <article key={pet.id}><div className="admin-pet-thumb">{pet.name.slice(0, 1)}</div><span>{pet.name} {pet.birth_date ? dateLabel(pet.birth_date) : ""}</span><Cake size={26} /></article>)}
+            {birthdays.length === 0 && <p className="admin-empty">Cadastre a data de nascimento dos pets para acompanhar aqui.</p>}
           </section>
 
           <section className="admin-panel-card admin-quick-reports">
             <div className="admin-card-head"><h2>Relatorios rapidos</h2><button><Download size={18} /></button></div>
-            <a><ClipboardCheck size={16} />Relatorio de reservas</a>
-            <a><ClipboardCheck size={16} />Relatorio de Day Care</a>
-            <a><ClipboardCheck size={16} />Relatorio de Hospedagem</a>
-            <a><ClipboardCheck size={16} />Relatorio financeiro</a>
+            <button onClick={() => onExportReport("reservas")}><ClipboardCheck size={16} />Relatorio de reservas</button>
+            <button onClick={() => onExportReport("daycare")}><ClipboardCheck size={16} />Relatorio de Day Care</button>
+            <button onClick={() => onExportReport("hospedagem")}><ClipboardCheck size={16} />Relatorio de Hospedagem</button>
+            <button onClick={() => onExportReport("financeiro")}><ClipboardCheck size={16} />Relatorio financeiro</button>
           </section>
         </aside>
 
         <section className="admin-panel-card admin-checkins">
           <h2>Check-ins de hoje</h2>
           {checkins.map((row) => (
-            <article key={row[0]}><div className="admin-pet-thumb">{row[0].slice(0, 1)}</div><div><strong>{row[0]}</strong><span>{row[1]}</span></div><em>{row[2]}</em><small><Clock size={14} />{row[3]}</small><b className={row[4] === "Concluido" ? "ok" : "wait"}>{row[4]}</b></article>
+            <article key={row.id}><div className="admin-pet-thumb">{row.pet_name.slice(0, 1)}</div><div><strong>{row.pet_name}</strong><span>{row.breed || row.size || row.tutor_name}</span></div><em>{row.service}</em><small><Clock size={14} />{row.expected_time || "--:--"}</small><button className={row.status === "Concluida" ? "ok" : "wait"} onClick={() => onUpdateStatus(row.id, row.status === "Concluida" ? "Em andamento" : "Concluida")}>{row.status === "Concluida" ? "Reabrir" : "Concluir"}</button></article>
           ))}
-          <button className="admin-wide-button">Ver todos check-ins <ChevronRight size={16} /></button>
+          {checkins.length === 0 && <p className="admin-empty">Nenhum check-in previsto para hoje.</p>}
+          <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver todos check-ins <ChevronRight size={16} /></button>
         </section>
 
         <section className="admin-panel-card admin-activities">
@@ -131,20 +240,20 @@ function AdminDashboardHome({ pendingCount }: { pendingCount: number }) {
             const ActivityIcon = Icon as typeof CheckCircle2;
             return <article key={String(title)}><time>{String(time)}</time><span><ActivityIcon size={18} /></span><div><strong>{String(title)}</strong><small>{String(text)}</small></div></article>;
           })}
-          <button className="admin-wide-button">Ver agenda completa <ChevronRight size={16} /></button>
+          <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver agenda completa <ChevronRight size={16} /></button>
         </section>
 
         <section className="admin-panel-card admin-indicators">
           <h2>Indicadores do mes</h2>
           <div>
-            <article><span><PawPrint size={26} /></span><small>Taxa de ocupacao</small><strong>82%</strong><em>+ 9% vs mes anterior</em></article>
-            <article><span><Star size={26} /></span><small>Satisfacao dos tutores</small><strong>4,8 / 5</strong><em>+ 0,3 vs mes anterior</em></article>
-            <article><span><Users size={26} /></span><small>Novos clientes</small><strong>23</strong><em>+ 15% vs mes anterior</em></article>
-            <article><span><Scissors size={26} /></span><small>Faturamento</small><strong>R$ 48.560,00</strong><em>+ 12% vs mes anterior</em></article>
+            <article><span><PawPrint size={26} /></span><small>Taxa de ocupacao</small><strong>{occupancy}%</strong><em>{todayReservations.length}/{maxCapacity} vagas hoje</em></article>
+            <article><span><Star size={26} /></span><small>Satisfacao dos tutores</small><strong>{satisfaction}</strong><em>Base pronta para avaliacoes</em></article>
+            <article><span><Users size={26} /></span><small>Novos clientes</small><strong>{newClients}</strong><em>Pets cadastrados no mes</em></article>
+            <article><span><Scissors size={26} /></span><small>Faturamento estimado</small><strong>{money(estimatedRevenue)}</strong><em>Calculado pelas reservas</em></article>
           </div>
         </section>
       </div>
-      <button className="admin-floating-action"><Plus size={24} /><span>Acoes rapidas</span></button>
+      <button className="admin-floating-action" onClick={onOpenNewReservation}><Plus size={24} /><span>Acoes rapidas</span></button>
     </section>
   );
 }
@@ -156,6 +265,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
+  const [adminName, setAdminName] = useState("Marina");
+  const [showLegacy, setShowLegacy] = useState(false);
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
   const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? 0);
@@ -165,6 +276,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity, setMaxCapacity] = useState(settings.max_capacity);
   const [settingsMessage, setSettingsMessage] = useState("");
+  const legacyRef = useRef<HTMLElement | null>(null);
   const filtered = useMemo(() => tab === "all" ? items : items.filter((item) => item.status === tab || (tab === "Aguardando aprovacao" && item.status === "Pendente")), [items, tab]);
   const selected = items.find((item) => item.id === selectedId) ?? filtered[0] ?? items[0];
   const occupied = activeCapacityCount(items);
@@ -181,6 +293,45 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     };
   }
 
+  function openLegacy(status = "all", target?: string) {
+    setShowLegacy(true);
+    setTab(status);
+    requestAnimationFrame(() => {
+      if (target) {
+        document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else {
+        legacyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+  }
+
+  function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
+    const filteredItems = items.filter((item) => {
+      if (kind === "daycare") return serviceKind(item.service) === "Day Care";
+      if (kind === "hospedagem") return serviceKind(item.service) === "Hospedagem";
+      return true;
+    });
+    const rows = [
+      ["id", "pet", "tutor", "telefone", "email", "servico", "entrada", "saida", "horario", "status", "valor_estimado"],
+      ...filteredItems.map((item) => {
+        const kindName = serviceKind(item.service);
+        const start = new Date(`${item.entry_date}T12:00:00`);
+        const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
+        const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
+        const price = kindName === "Hospedagem" ? 120 : kindName === "Banho e Tosa" ? 90 : 80;
+        return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.status, kind === "financeiro" ? String(price * days) : ""];
+      })
+    ];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `scolt-cia-${kind}-${localDateKey()}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function unlockWithToken(token: string) {
     const response = await fetch("/api/admin/google-login", {
       method: "POST",
@@ -194,6 +345,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
     if (response.ok) {
       setAccessToken(token);
+      const loginData = await response.json();
+      if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
       const usersResponse = await fetch("/api/admin/users", {
         headers: {
           "Content-Type": "application/json",
@@ -234,6 +387,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     setUnlocked(response.ok);
 
     if (response.ok) {
+      const loginData = await response.json();
+      if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
       setAccessToken("");
       const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
       if (usersResponse.ok) setUsers(await usersResponse.json());
@@ -274,6 +429,19 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     if (response.ok) {
       const status = action === "approve" ? "Confirmada" : "Reprovada";
       setItems((current) => current.map((item) => item.id === id ? { ...item, status } : item));
+    }
+  }
+
+  async function updateDashboardStatus(id: number, status: string) {
+    const response = await fetch("/api/admin/reservations", {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ id, status })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
     }
   }
 
@@ -361,21 +529,21 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
         </div>
         <nav className="admin-nav">
-          <a className="active"><LayoutDashboard size={18} />Dashboard</a>
+          <a className="active" onClick={() => setShowLegacy(false)}><LayoutDashboard size={18} />Dashboard</a>
           <div className="admin-nav-section">
             <span>Gestao</span>
-            <a><CalendarCheck size={18} />Reservas</a>
-            <a><PawPrint size={18} />Pets</a>
-            <a><Users size={18} />Clientes (Tutores)</a>
-            <a><Scissors size={18} />Servicos</a>
+            <a onClick={() => openLegacy("all")}><CalendarCheck size={18} />Reservas</a>
+            <a onClick={() => openLegacy("all")}><PawPrint size={18} />Pets</a>
+            <a onClick={() => openLegacy("all", "usuarios-admin")}><Users size={18} />Clientes (Tutores)</a>
+            <a onClick={() => openLegacy("all")}><Scissors size={18} />Servicos</a>
             <a><Package size={18} />Pacotes</a>
             <a><ClipboardCheck size={18} />Relatorios diarios</a>
           </div>
           <div className="admin-nav-section">
             <span>Operacao</span>
-            <a><CalendarDays size={18} />Agenda</a>
-            <a><CheckCircle2 size={18} />Check-in / Check-out</a>
-            <a><Activity size={18} />Atividades</a>
+            <a onClick={() => openLegacy("all")}><CalendarDays size={18} />Agenda</a>
+            <a onClick={() => openLegacy("Confirmada")}><CheckCircle2 size={18} />Check-in / Check-out</a>
+            <a onClick={() => openLegacy("Em andamento")}><Activity size={18} />Atividades</a>
             <a><Utensils size={18} />Alimentacao</a>
             <a><Scissors size={18} />Banho e Tosa</a>
           </div>
@@ -399,8 +567,19 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         </div>
       </aside>
 
-      <AdminDashboardHome pendingCount={countByStatus("Aguardando aprovacao")} />
-      <section className="admin-main admin-legacy-hidden">
+      <AdminDashboardHome
+        reservations={items}
+        pets={pets}
+        users={users}
+        maxCapacity={maxCapacity}
+        adminName={adminName}
+        onOpenReservations={(status = "all") => openLegacy(status)}
+        onOpenNewReservation={() => openLegacy("all", "nova-reserva")}
+        onOpenUsers={() => openLegacy("all", "usuarios-admin")}
+        onUpdateStatus={updateDashboardStatus}
+        onExportReport={exportReport}
+      />
+      <section ref={legacyRef} className={`admin-main admin-legacy-panel ${showLegacy ? "" : "admin-legacy-hidden"}`}>
         <header className="admin-topbar">
           <div>
             <h1>Gestao de Reservas</h1>
@@ -453,14 +632,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
                 <div className="approval-alert"><Clock size={26} /><div><strong>{selected.status}</strong><span>Essa solicitacao aguarda avaliacao do administrador.</span></div></div>
                 <div className="pet-detail-head">
                   <div className="pet-photo">{selected.pet_name.slice(0, 1)}</div>
-                  <div><h2>{selected.pet_name}</h2><span>{selected.breed || selected.size || "Pet cadastrado"}</span><p>{selected.size || "Porte nao informado"} • {selected.service}</p></div>
+                  <div><h2>{selected.pet_name}</h2><span>{selected.breed || selected.size || "Pet cadastrado"}</span><p>{selected.size || "Porte nao informado"} - {selected.service}</p></div>
                   <div className="requester"><strong>Solicitado por</strong><p>{selected.tutor_name}</p><p>{selected.phone}</p><p>{selected.email}</p></div>
                 </div>
                 <div className="detail-grid">
                   <div>
                     <h3>Detalhes da hospedagem</h3>
                     <p><strong>Tipo de servico</strong><span>{selected.service}</span></p>
-                    <p><strong>Check-in</strong><span>{selected.entry_date} • {selected.expected_time || "-"}</span></p>
+                    <p><strong>Check-in</strong><span>{selected.entry_date} - {selected.expected_time || "-"}</span></p>
                     <p><strong>Check-out</strong><span>{selected.exit_date || "-"}</span></p>
                     <p><strong>Observacoes</strong><span>{selected.notes || "Sem observacoes."}</span></p>
                   </div>
@@ -487,7 +666,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <ReservationForm pets={pets} reservations={items} settings={{ max_capacity: maxCapacity }} admin adminAuth={{ email, password, accessToken }} />
         </section>
 
-        <section className="admin-card">
+        <section id="usuarios-admin" className="admin-card">
           <h2>Usuarios do sistema</h2>
           <form className="compact-form" onSubmit={createAdminUser}>
             <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
@@ -504,7 +683,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div className="admin-list">
             {users.map((user) => (
               <article className="reservation-row" key={user.id}>
-                <div><strong>{user.name}</strong><p>{user.email} • {user.role} • {user.is_active ? "ativo" : "inativo"}</p></div>
+                <div><strong>{user.name}</strong><p>{user.email} - {user.role} - {user.is_active ? "ativo" : "inativo"}</p></div>
               </article>
             ))}
           </div>

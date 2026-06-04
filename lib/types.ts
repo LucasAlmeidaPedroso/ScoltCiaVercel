@@ -6,6 +6,9 @@ export type PetOption = {
   tutor_name: string | null;
   tutor_phone: string | null;
   tutor_email: string | null;
+  birth_date?: string | null;
+  photo_url?: string | null;
+  created_at?: string | null;
 };
 
 export type ReservationPayload = {

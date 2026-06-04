@@ -603,6 +603,14 @@ textarea { resize: vertical; }
   grid-template-columns: 58px 1fr;
   gap: 12px;
   padding: 22px 20px;
+  border: 1px solid #edf1f7;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.admin-kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(7, 29, 58, .09);
 }
 .admin-kpi > span {
   width: 54px;
@@ -775,7 +783,7 @@ textarea { resize: vertical; }
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: conic-gradient(#14bbb0 0 58%, #8f5fe8 58% 84%, #ffc52e 84% 100%);
+  background: conic-gradient(#14bbb0 0 var(--daycare, 58%), #8f5fe8 var(--daycare, 58%) var(--hosting, 84%), #ffc52e var(--hosting, 84%) 100%);
 }
 .admin-donut:before {
   content: "";
@@ -868,10 +876,14 @@ textarea { resize: vertical; }
   font-weight: 800;
 }
 .admin-checkins b,
-.admin-next-reservations b {
+.admin-next-reservations b,
+.admin-checkins button {
+  border: 0;
   border-radius: 999px;
   padding: 7px 12px;
   font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
 }
 .ok {
   color: #009f77;
@@ -923,13 +935,27 @@ textarea { resize: vertical; }
 .admin-quick-reports {
   background: linear-gradient(135deg, #f0e9ff, #fff);
 }
-.admin-quick-reports a {
+.admin-quick-reports a,
+.admin-quick-reports button {
   display: flex;
   align-items: center;
   gap: 10px;
+  border: 0;
+  width: 100%;
   margin-top: 14px;
+  padding: 0;
   color: #6f43d6;
+  background: transparent;
+  font: inherit;
   font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-empty {
+  margin: 16px 0 0;
+  color: #7b8aa3;
+  font-size: 13px;
+  font-weight: 700;
 }
 .admin-indicators > div {
   display: grid;

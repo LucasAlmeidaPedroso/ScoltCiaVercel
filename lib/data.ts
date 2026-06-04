@@ -61,6 +61,23 @@ export async function updateReservationStatus(id: number, status: string) {
   return data;
 }
 
+export async function updateReservation(id: number, payload: Partial<Reservation>) {
+  if (!hasSupabaseEnv()) {
+    return { id, ...payload };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("reservations")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getDaycareSettings(): Promise<DaycareSettings> {
   if (!hasSupabaseEnv()) return { max_capacity: 20 };
 

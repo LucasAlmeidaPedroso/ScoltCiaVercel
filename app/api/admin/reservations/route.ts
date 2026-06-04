@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { createReservation } from "@/lib/data";
+import { createReservation, updateReservation } from "@/lib/data";
 
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
@@ -9,4 +9,24 @@ export async function POST(request: Request) {
   const payload = await request.json();
   const reservation = await createReservation(payload, "Confirmada");
   return NextResponse.json(reservation, { status: 201 });
+}
+
+export async function PATCH(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+
+  const { id, ...payload } = await request.json();
+  if (!id) return NextResponse.json({ error: "Reserva nao informada" }, { status: 400 });
+
+  const allowedFields = ["status", "expected_time", "notes", "exit_date"] as const;
+  const updates = Object.fromEntries(
+    Object.entries(payload).filter(([key]) => allowedFields.includes(key as typeof allowedFields[number]))
+  );
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "Nada para atualizar" }, { status: 400 });
+  }
+
+  const reservation = await updateReservation(Number(id), updates);
+  return NextResponse.json(reservation);
 }
