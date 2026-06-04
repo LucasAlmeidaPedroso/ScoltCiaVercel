@@ -387,7 +387,7 @@ textarea { resize: vertical; }
   min-height: 860px;
   margin: auto;
   display: grid;
-  grid-template-columns: 250px 1fr;
+  grid-template-columns: 264px 1fr;
   border: 1px solid var(--line);
   background: #fff;
   box-shadow: 0 18px 44px rgba(7, 29, 58, .09);
@@ -395,8 +395,8 @@ textarea { resize: vertical; }
 .admin-sidebar {
   display: grid;
   grid-template-rows: auto 1fr auto auto;
-  gap: 22px;
-  padding: 26px 18px;
+  gap: 28px;
+  padding: 26px 20px;
   border-right: 1px solid var(--line);
   background: #fff;
 }
@@ -405,26 +405,57 @@ textarea { resize: vertical; }
   align-items: center;
   gap: 12px;
 }
-.admin-brand img { border-radius: 8px; }
-.admin-brand strong, .admin-profile strong { display: block; font-size: 17px; }
-.admin-brand span, .admin-profile span { color: var(--muted); font-size: 12px; }
+.admin-brand img {
+  width: 62px;
+  height: 62px;
+  border-radius: 14px;
+}
+.admin-brand strong, .admin-profile strong { display: block; font-size: 24px; line-height: 1; }
+.admin-brand span, .admin-profile span { color: var(--muted); font-size: 13px; font-weight: 700; }
+.admin-profile strong {
+  font-size: 15px;
+}
+.admin-profile span {
+  font-size: 12px;
+}
 .admin-nav {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 18px;
 }
 .admin-nav a {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 13px 14px;
-  border-radius: 8px;
-  color: #263852;
+  padding: 11px 12px;
+  border-radius: 10px;
+  color: #173054;
   font-weight: 800;
+  font-size: 14px;
 }
 .admin-nav a.active {
+  color: #fff;
+  background: linear-gradient(135deg, #23c7bd, #8ce2d7);
+  box-shadow: 0 14px 24px rgba(20, 187, 176, .22);
+}
+.admin-nav a:not(.active):hover {
   color: var(--aqua-dark);
-  background: #e9faf5;
+  background: #effcf8;
+}
+.admin-nav-section {
+  display: grid;
+  gap: 7px;
+}
+.admin-nav-section > span {
+  margin: 0 0 6px 11px;
+  color: #405672;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+.admin-nav-section a svg {
+  color: #25456f;
 }
 .quick-whatsapp {
   display: block;

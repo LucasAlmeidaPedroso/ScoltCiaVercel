@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarCheck, Check, ChevronRight, Clock, CreditCard, Eye, EyeOff, Gamepad2, Heart, Hotel, LayoutDashboard, Lock, Mail, PawPrint, Scissors, Settings, ShieldCheck, UserRound, Users, X } from "lucide-react";
+import { Bell, CalendarCheck, Check, ChevronRight, ClipboardCheck, Clock, Eye, EyeOff, Gamepad2, Heart, LayoutDashboard, Lock, Mail, Package, PawPrint, Scissors, ShieldCheck, UserRound, Users, X } from "lucide-react";
 import { ReservationForm } from "@/components/ReservationForm";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AppUser, DaycareSettings, PetOption, Reservation, UserPayload } from "@/lib/types";
@@ -244,14 +244,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
         </div>
         <nav className="admin-nav">
-          <a><LayoutDashboard size={18} />Dashboard</a>
-          <a className="active"><CalendarCheck size={18} />Reservas</a>
-          <a><Hotel size={18} />Hospedagens</a>
-          <a><Scissors size={18} />Day Care</a>
-          <a><Users size={18} />Clientes</a>
-          <a><PawPrint size={18} />Pets</a>
-          <a><CreditCard size={18} />Financeiro</a>
-          <a><Settings size={18} />Configuracoes</a>
+          <a className="active"><LayoutDashboard size={18} />Dashboard</a>
+          <div className="admin-nav-section">
+            <span>Gestao</span>
+            <a><CalendarCheck size={18} />Reservas</a>
+            <a><PawPrint size={18} />Pets</a>
+            <a><Users size={18} />Clientes (Tutores)</a>
+            <a><Scissors size={18} />Servicos</a>
+            <a><Package size={18} />Pacotes</a>
+            <a><ClipboardCheck size={18} />Relatorios diarios</a>
+          </div>
         </nav>
         <a className="quick-whatsapp" href="https://wa.me/5511984130296" target="_blank">Atendimento rapido<br /><strong>Falar no WhatsApp</strong></a>
         <div className="admin-profile"><UserRound size={34} /><div><strong>Admin</strong><span>Administrador</span></div></div>
