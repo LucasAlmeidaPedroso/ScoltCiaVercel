@@ -9,6 +9,13 @@ export type PetOption = {
   birth_date?: string | null;
   photo_url?: string | null;
   created_at?: string | null;
+  sex?: string | null;
+  weight?: number | null;
+  behavior?: string | null;
+  food_restrictions?: string | null;
+  medications?: string | null;
+  important_notes?: string | null;
+  veterinarian?: string | null;
 };
 
 export type ReservationPayload = {

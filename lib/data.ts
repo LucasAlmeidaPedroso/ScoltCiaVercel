@@ -78,6 +78,23 @@ export async function updateReservation(id: number, payload: Partial<Reservation
   return data;
 }
 
+export async function updatePet(id: number, payload: Partial<PetOption>) {
+  if (!hasSupabaseEnv()) {
+    return { id, ...payload };
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("pets")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function getDaycareSettings(): Promise<DaycareSettings> {
   if (!hasSupabaseEnv()) return { max_capacity: 20 };
 

@@ -13,7 +13,7 @@ type Props = {
   settings: DaycareSettings;
 };
 
-type AdminPageKey = "dashboard" | "reservations" | "users";
+type AdminPageKey = "dashboard" | "reservations" | "pets" | "users";
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -125,6 +125,184 @@ function serviceIconClass(service: string) {
 }
 
 type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
+type PetPatch = Partial<Pick<PetOption, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url">>;
+
+function petAge(pet: PetOption) {
+  if (!pet.birth_date) return "-";
+  const birth = new Date(`${pet.birth_date}T12:00:00`);
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) years -= 1;
+  return years <= 0 ? "Menos de 1 ano" : `${years} ano${years > 1 ? "s" : ""}`;
+}
+
+function petStatus(pet: PetOption, reservations: Reservation[]) {
+  return reservations.some((item) => item.pet_id === pet.id && activeStatuses.includes(item.status)) ? "Ativo" : "Ativo";
+}
+
+function petLastActivity(pet: PetOption, reservations: Reservation[]) {
+  const last = reservations
+    .filter((item) => item.pet_id === pet.id || item.pet_name.toLowerCase() === pet.name.toLowerCase())
+    .sort((a, b) => b.entry_date.localeCompare(a.entry_date))[0];
+  return last ? `${dateLabel(last.entry_date)} - ${serviceKind(last.service)}` : "Sem atividade";
+}
+
+function petNotes(pet: PetOption) {
+  return [pet.food_restrictions, pet.medications, pet.important_notes, pet.behavior].filter(Boolean) as string[];
+}
+
+type AdminPetsPageProps = {
+  pets: PetOption[];
+  reservations: Reservation[];
+  selectedPetId: number;
+  setSelectedPetId: (id: number) => void;
+  onPatch: (id: number, payload: PetPatch) => Promise<void>;
+};
+
+function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, onPatch }: AdminPetsPageProps) {
+  const [query, setQuery] = useState("");
+  const [breedFilter, setBreedFilter] = useState("all");
+  const [sizeFilter, setSizeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [tab, setTab] = useState("info");
+  const [editing, setEditing] = useState<PetOption | null>(null);
+  const [editForm, setEditForm] = useState<PetPatch>({});
+  const breeds = Array.from(new Set(pets.map((pet) => pet.breed).filter(Boolean) as string[])).sort();
+  const selected = pets.find((pet) => pet.id === selectedPetId) || pets[0];
+  const filteredPets = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return pets.filter((pet) => {
+      const matchesText = !text || [pet.name, pet.breed, pet.size, pet.tutor_name, pet.tutor_phone, pet.tutor_email].some((value) => String(value || "").toLowerCase().includes(text));
+      const matchesBreed = breedFilter === "all" || pet.breed === breedFilter;
+      const matchesSize = sizeFilter === "all" || pet.size === sizeFilter;
+      const matchesStatus = statusFilter === "all" || petStatus(pet, reservations) === statusFilter;
+      return matchesText && matchesBreed && matchesSize && matchesStatus;
+    });
+  }, [pets, reservations, query, breedFilter, sizeFilter, statusFilter]);
+  const cats = pets.filter((pet) => String(pet.breed || "").toLowerCase().includes("gato") || String(pet.breed || "").toLowerCase().includes("cat")).length;
+  const documented = pets.filter((pet) => pet.birth_date && pet.tutor_name && pet.tutor_phone).length;
+  const activePets = pets.filter((pet) => petStatus(pet, reservations) === "Ativo").length;
+
+  function openEdit(pet: PetOption) {
+    setEditing(pet);
+    setEditForm({
+      name: pet.name,
+      breed: pet.breed || "",
+      size: pet.size || "",
+      sex: pet.sex || "",
+      weight: pet.weight || null,
+      birth_date: pet.birth_date || "",
+      behavior: pet.behavior || "",
+      food_restrictions: pet.food_restrictions || "",
+      medications: pet.medications || "",
+      important_notes: pet.important_notes || "",
+      veterinarian: pet.veterinarian || "",
+      photo_url: pet.photo_url || ""
+    });
+  }
+
+  async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editing) return;
+    await onPatch(editing.id, { ...editForm, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null });
+    setEditing(null);
+  }
+
+  return (
+    <section className="admin-main admin-pets-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>Pets</h1>
+          <p>Gerencie as informacoes, documentos e historico dos pets cadastrados.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pet por nome, raca, tutor..." /><Search size={20} /></label>
+          <button className="admin-bell"><Bell size={20} /><span>{pets.length}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
+        </div>
+      </header>
+
+      <div className="reservation-metrics pet-metrics">
+        <article><span className="aqua"><Users size={28} /></span><div><small>Total de pets</small><strong>{pets.length}</strong><em>{filteredPets.length} no filtro atual</em></div></article>
+        <article><span className="purple"><PawPrint size={28} /></span><div><small>Caes</small><strong>{Math.max(pets.length - cats, 0)}</strong><em>Pets caninos cadastrados</em></div></article>
+        <article><span className="yellow"><PawPrint size={28} /></span><div><small>Gatos</small><strong>{cats}</strong><em>Identificados por raca</em></div></article>
+        <article><span className="pink"><Heart size={28} /></span><div><small>Pets ativos</small><strong>{activePets}</strong><em>Disponiveis no sistema</em></div></article>
+        <article><span className="aqua"><ClipboardCheck size={28} /></span><div><small>Documentacao em dia</small><strong>{documented}</strong><em>{pets.length ? Math.round((documented / pets.length) * 100) : 0}% do total</em></div></article>
+      </div>
+
+      <div className="pets-workspace">
+        <section className="reservation-table-card pets-table-card">
+          <div className="reservation-filterbar pets-filterbar">
+            <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pet por nome..." /></label>
+            <select value={breedFilter} onChange={(event) => setBreedFilter(event.target.value)}><option value="all">Todas as racas</option>{breeds.map((breed) => <option key={breed} value={breed}>{breed}</option>)}</select>
+            <select value={sizeFilter} onChange={(event) => setSizeFilter(event.target.value)}><option value="all">Todos os portes</option><option>Pequeno</option><option>Medio</option><option>Grande</option></select>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Todos os status</option><option>Ativo</option></select>
+            <button onClick={() => { setQuery(""); setBreedFilter("all"); setSizeFilter("all"); setStatusFilter("all"); }}><Filter size={18} />Filtros</button>
+          </div>
+          <div className="pets-table">
+            <div className="pets-table-head"><span></span><span>Pet</span><span>Tutor</span><span>Raca</span><span>Porte</span><span>Idade</span><span>Status</span><span>Ultima atividade</span><span></span></div>
+            {filteredPets.map((pet) => (
+              <button key={pet.id} className={`pets-table-row ${selected?.id === pet.id ? "active" : ""}`} onClick={() => { setSelectedPetId(pet.id); setTab("info"); }}>
+                <span><input type="checkbox" checked={selected?.id === pet.id} onChange={() => setSelectedPetId(pet.id)} /></span>
+                <span className="reservation-pet-cell"><i>{pet.name.slice(0, 1)}</i><span><b>{pet.name}</b><small>{pet.sex || ""}</small></span></span>
+                <span><b>{pet.tutor_name || "Sem tutor"}</b><small>{pet.tutor_phone || "Telefone nao informado"}</small></span>
+                <span>{pet.breed || "-"}</span>
+                <span><em className={`pet-size ${pet.size === "Grande" ? "large" : pet.size === "Medio" ? "medium" : "small"}`}>{pet.size || "-"}</em></span>
+                <span>{petAge(pet)}</span>
+                <span><em className="reservation-status confirmed">{petStatus(pet, reservations)}</em></span>
+                <span>{petLastActivity(pet, reservations)}</span>
+                <span><MoreVertical size={18} /></span>
+              </button>
+            ))}
+            {filteredPets.length === 0 && <p className="admin-empty">Nenhum pet encontrado com esses filtros.</p>}
+          </div>
+        </section>
+
+        <aside className="pet-detail-card">
+          {selected ? (
+            <>
+              <div className="pet-detail-hero">
+                <div className="reservation-detail-avatar">{selected.name.slice(0, 1)}</div>
+                <div><h2>{selected.name}</h2><span>{selected.breed || "Raca nao informada"} - {petAge(selected)}</span></div>
+                <em className="reservation-status confirmed">{petStatus(selected, reservations)}</em>
+              </div>
+              <div className="pet-actions">
+                <button onClick={() => openEdit(selected)}><Edit3 size={16} />Editar</button>
+                <button onClick={() => setTab("docs")}><ClipboardCheck size={16} />Vacinas</button>
+                <button onClick={() => setTab("history")}><Clock size={16} />Historico</button>
+                <button onClick={() => setTab("notes")}><MoreVertical size={16} />Mais</button>
+              </div>
+              <div className="pet-tabs"><button className={tab === "info" ? "active" : ""} onClick={() => setTab("info")}>Informacoes</button><button className={tab === "docs" ? "active" : ""} onClick={() => setTab("docs")}>Documentos</button><button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historico</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}>Anotacoes</button></div>
+              {tab === "info" && <div className="pet-info-grid"><p><span>Tutor</span><strong>{selected.tutor_name || "-"}</strong></p><p><span>Data de nascimento</span><strong>{selected.birth_date ? dateLabel(selected.birth_date) : "-"}</strong></p><p><span>Telefone</span><strong>{selected.tutor_phone || "-"}</strong></p><p><span>Peso</span><strong>{selected.weight ? `${selected.weight} kg` : "-"}</strong></p><p><span>E-mail</span><strong>{selected.tutor_email || "-"}</strong></p><p><span>Sexo</span><strong>{selected.sex || "-"}</strong></p><p><span>Porte</span><strong>{selected.size || "-"}</strong></p><p><span>Veterinario</span><strong>{selected.veterinarian || "-"}</strong></p></div>}
+              {tab === "docs" && <div className="pet-note-box"><strong>Documentos e vacinas</strong><p>{selected.birth_date ? "Cadastro com data de nascimento informada." : "Cadastre data de nascimento e documentos para acompanhar vencimentos."}</p><p>{selected.photo_url ? "Foto cadastrada." : "Foto ainda nao cadastrada."}</p></div>}
+              {tab === "history" && <div className="pet-activity-list">{reservations.filter((item) => item.pet_id === selected.id || item.pet_name.toLowerCase() === selected.name.toLowerCase()).slice(0, 5).map((item) => <article key={item.id}><span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span><strong>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</strong></article>)}<button className="approve-action"><Plus size={16} />Nova atividade</button></div>}
+              {tab === "notes" && <div className="pet-note-box"><strong>Informacoes importantes</strong>{petNotes(selected).length ? petNotes(selected).map((note) => <p key={note}>{note}</p>) : <p>Nenhuma anotacao importante cadastrada.</p>}</div>}
+            </>
+          ) : <p className="admin-empty">Selecione um pet para ver os detalhes.</p>}
+        </aside>
+      </div>
+
+      {editing && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal pet-edit-modal" onSubmit={saveEdit}>
+            <div className="reservation-detail-head"><h2>Editar pet</h2><button type="button" onClick={() => setEditing(null)}><X size={18} /></button></div>
+            <label>Nome<input value={editForm.name || ""} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <label>Raca<input value={editForm.breed || ""} onChange={(event) => setEditForm((current) => ({ ...current, breed: event.target.value }))} /></label>
+            <label>Porte<select value={editForm.size || "Pequeno"} onChange={(event) => setEditForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
+            <label>Sexo<select value={editForm.sex || ""} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value }))}><option value="">Nao informado</option><option>Macho</option><option>Femea</option></select></label>
+            <label>Peso<input type="number" value={editForm.weight ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, weight: Number(event.target.value) }))} /></label>
+            <label>Nascimento<input type="date" value={editForm.birth_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, birth_date: event.target.value }))} /></label>
+            <label className="span-2">Restricoes alimentares<textarea rows={3} value={editForm.food_restrictions || ""} onChange={(event) => setEditForm((current) => ({ ...current, food_restrictions: event.target.value }))} /></label>
+            <label className="span-2">Medicamentos<textarea rows={3} value={editForm.medications || ""} onChange={(event) => setEditForm((current) => ({ ...current, medications: event.target.value }))} /></label>
+            <label className="span-2">Anotacoes importantes<textarea rows={4} value={editForm.important_notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, important_notes: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar pet</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+}
 
 type AdminReservationsPageProps = {
   reservations: Reservation[];
@@ -519,7 +697,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [reservationInitialStatus, setReservationInitialStatus] = useState("all");
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
+  const [petItems, setPetItems] = useState(pets);
   const [selectedId, setSelectedId] = useState(reservations[0]?.id ?? 0);
+  const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? 0);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
@@ -545,6 +725,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function openUsers() {
     setAdminPage("users");
+  }
+
+  function openPets() {
+    setAdminPage("pets");
   }
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
@@ -678,6 +862,19 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function updatePetFields(id: number, payload: PetPatch) {
+    const response = await fetch("/api/admin/pets", {
+      method: "PATCH",
+      headers: adminHeaders(),
+      body: JSON.stringify({ id, ...payload })
+    });
+
+    if (response.ok) {
+      const updated = await response.json();
+      setPetItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+    }
+  }
+
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setUserMessage("");
@@ -753,7 +950,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div className="admin-nav-section">
             <span>Gestao</span>
             <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
-            <a onClick={() => openReservations("all")}><PawPrint size={18} />Pets</a>
+            <a className={adminPage === "pets" ? "active" : ""} onClick={openPets}><PawPrint size={18} />Pets</a>
             <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Clientes (Tutores)</a>
             <a onClick={() => openReservations("all")}><Scissors size={18} />Servicos</a>
             <a><Package size={18} />Pacotes</a>
@@ -790,7 +987,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {adminPage === "dashboard" && (
         <AdminDashboardHome
           reservations={items}
-          pets={pets}
+          pets={petItems}
           users={users}
           maxCapacity={maxCapacity}
           adminName={adminName}
@@ -799,6 +996,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           onOpenUsers={openUsers}
           onUpdateStatus={updateDashboardStatus}
           onExportReport={exportReport}
+        />
+      )}
+
+      {adminPage === "pets" && (
+        <AdminPetsPage
+          pets={petItems}
+          reservations={items}
+          selectedPetId={selectedPetId}
+          setSelectedPetId={setSelectedPetId}
+          onPatch={updatePetFields}
         />
       )}
 

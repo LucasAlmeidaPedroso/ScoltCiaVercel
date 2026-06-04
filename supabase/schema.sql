@@ -69,12 +69,19 @@ select
   pets.name,
   pets.breed,
   pets.size,
+  tutors.full_name as tutor_name,
+  tutors.phone as tutor_phone,
+  tutors.email as tutor_email,
   pets.birth_date,
   pets.photo_url,
   pets.created_at,
-  tutors.full_name as tutor_name,
-  tutors.phone as tutor_phone,
-  tutors.email as tutor_email
+  pets.sex,
+  pets.weight,
+  pets.behavior,
+  pets.food_restrictions,
+  pets.medications,
+  pets.important_notes,
+  pets.veterinarian
 from pets
 left join tutors on tutors.id = pets.tutor_id;
 
