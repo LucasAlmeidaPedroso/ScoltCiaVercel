@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { createTutor, updateTutor } from "@/lib/data";
+import { createTutor, listTutors, updateTutor } from "@/lib/data";
 
 const allowedFields = ["full_name", "phone", "whatsapp", "email", "address", "emergency_contact"] as const;
 
@@ -8,6 +8,14 @@ function cleanPayload(payload: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(payload).filter(([key]) => allowedFields.includes(key as typeof allowedFields[number]))
   );
+}
+
+export async function GET(request: Request) {
+  const admin = await requireAdmin(request);
+  if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+
+  const tutors = await listTutors();
+  return NextResponse.json(tutors);
 }
 
 export async function POST(request: Request) {

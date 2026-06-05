@@ -7,6 +7,7 @@ export type PetOption = {
   tutor_phone: string | null;
   tutor_email: string | null;
   tutor_id?: number | null;
+  tutor_ids?: number[] | null;
   tutor_address?: string | null;
   birth_date?: string | null;
   photo_url?: string | null;
@@ -18,6 +19,22 @@ export type PetOption = {
   medications?: string | null;
   important_notes?: string | null;
   veterinarian?: string | null;
+};
+
+export type PetPayload = {
+  name: string;
+  tutor_ids?: number[];
+  breed?: string | null;
+  size?: string | null;
+  sex?: string | null;
+  weight?: number | null;
+  birth_date?: string | null;
+  behavior?: string | null;
+  food_restrictions?: string | null;
+  medications?: string | null;
+  important_notes?: string | null;
+  veterinarian?: string | null;
+  photo_url?: string | null;
 };
 
 export type ReservationPayload = {
@@ -68,6 +85,11 @@ export type TutorPayload = {
   email?: string | null;
   address?: string | null;
   emergency_contact?: string | null;
+};
+
+export type Tutor = TutorPayload & {
+  id: number;
+  created_at?: string | null;
 };
 
 export type AdminRecord = {

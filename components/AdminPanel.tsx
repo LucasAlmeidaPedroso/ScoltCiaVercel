@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, Reservation, ReservationPayload, TutorPayload, UserPayload } from "@/lib/types";
+import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
@@ -291,7 +291,7 @@ function serviceIconClass(service: string) {
 }
 
 type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
-type PetPatch = Partial<Pick<PetOption, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url">>;
+type PetPatch = Partial<Pick<PetPayload, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url" | "tutor_ids">>;
 type TutorPatch = Partial<TutorPayload>;
 
 type TutorRecord = {
@@ -310,9 +310,48 @@ function tutorKeyFromPet(pet: PetOption) {
   return String(pet.tutor_id || pet.tutor_email || pet.tutor_phone || pet.tutor_name || pet.id);
 }
 
-function buildTutors(pets: PetOption[], reservations: Reservation[]) {
+function tutorRecordFromTutor(tutor: Tutor): TutorRecord {
+  return {
+    key: `tutor-${tutor.id}`,
+    id: tutor.id,
+    name: tutor.full_name,
+    phone: tutor.phone || "",
+    email: tutor.email || "",
+    address: tutor.address || "",
+    created_at: tutor.created_at,
+    pets: [],
+    reservations: []
+  };
+}
+
+function buildTutors(pets: PetOption[], reservations: Reservation[], baseTutors: TutorRecord[] = []) {
   const map = new Map<string, TutorRecord>();
+  baseTutors.forEach((tutor) => {
+    map.set(tutor.key, { ...tutor, pets: [], reservations: [] });
+  });
   pets.forEach((pet) => {
+    const tutorIds = pet.tutor_ids?.length ? pet.tutor_ids : pet.tutor_id ? [pet.tutor_id] : [];
+    if (tutorIds.length > 0) {
+      tutorIds.forEach((id) => {
+        const key = `tutor-${id}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            id,
+            name: pet.tutor_name || "Tutor sem nome",
+            phone: pet.tutor_phone || "",
+            email: pet.tutor_email || "",
+            address: pet.tutor_address || "",
+            created_at: pet.created_at,
+            pets: [],
+            reservations: []
+          });
+        }
+        map.get(key)?.pets.push(pet);
+      });
+      return;
+    }
+
     const key = tutorKeyFromPet(pet);
     if (!map.has(key)) {
       map.set(key, {
@@ -665,7 +704,7 @@ type AdminTutorsPageProps = {
   reservations: Reservation[];
   selectedTutorKey: string;
   setSelectedTutorKey: (key: string) => void;
-  onCreate: (payload: TutorPayload) => Promise<void>;
+  onCreate: (payload: TutorPayload) => Promise<TutorRecord | null>;
   onPatch: (id: number, payload: TutorPatch) => Promise<void>;
 };
 
@@ -876,21 +915,28 @@ function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTu
 
 type AdminPetsPageProps = {
   pets: PetOption[];
+  tutors: TutorRecord[];
   reservations: Reservation[];
   selectedPetId: number;
   setSelectedPetId: (id: number) => void;
+  onCreate: (payload: PetPayload) => Promise<PetOption | null>;
   onPatch: (id: number, payload: PetPatch) => Promise<void>;
+  onCreateTutor: (payload: TutorPayload) => Promise<TutorRecord | null>;
 };
 
-function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, onPatch }: AdminPetsPageProps) {
+function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedPetId, onCreate, onPatch, onCreateTutor }: AdminPetsPageProps) {
   const [query, setQuery] = useState("");
   const [breedFilter, setBreedFilter] = useState("all");
   const [sizeFilter, setSizeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [tab, setTab] = useState("info");
   const [detail, setDetail] = useState<PetOption | null>(null);
+  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<PetOption | null>(null);
   const [editForm, setEditForm] = useState<PetPatch>({});
+  const [selectedTutorIds, setSelectedTutorIds] = useState<number[]>([]);
+  const [showTutorForm, setShowTutorForm] = useState(false);
+  const [tutorForm, setTutorForm] = useState<TutorPayload>({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
   const breeds = Array.from(new Set(pets.map((pet) => pet.breed).filter(Boolean) as string[])).sort();
   const selected = selectedPetId ? pets.find((pet) => pet.id === selectedPetId) : undefined;
   const filteredPets = useMemo(() => {
@@ -907,9 +953,36 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
   const documented = pets.filter((pet) => pet.birth_date && pet.tutor_name && pet.tutor_phone).length;
   const activePets = pets.filter((pet) => petStatus(pet, reservations) === "Ativo").length;
 
+  function openCreate() {
+    setCreating(true);
+    setEditing(null);
+    setDetail(null);
+    setShowTutorForm(false);
+    setSelectedTutorIds([]);
+    setTutorForm({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
+    setEditForm({
+      name: "",
+      breed: "",
+      size: "Pequeno",
+      sex: "",
+      weight: null,
+      birth_date: "",
+      behavior: "",
+      food_restrictions: "",
+      medications: "",
+      important_notes: "",
+      veterinarian: "",
+      photo_url: ""
+    });
+  }
+
   function openEdit(pet: PetOption) {
     setEditing(pet);
+    setCreating(false);
     setDetail(null);
+    setShowTutorForm(false);
+    setTutorForm({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
+    setSelectedTutorIds((pet.tutor_ids?.length ? pet.tutor_ids : pet.tutor_id ? [pet.tutor_id] : []).map(Number));
     setEditForm({
       name: pet.name,
       breed: pet.breed || "",
@@ -928,9 +1001,34 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
 
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editing) return;
-    await onPatch(editing.id, { ...editForm, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null });
+    const payload = { ...editForm, tutor_ids: selectedTutorIds, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null };
+    if (editing) {
+      await onPatch(editing.id, payload);
+    } else {
+      await onCreate({ ...payload, name: String(editForm.name || "").trim() } as PetPayload);
+    }
     setEditing(null);
+    setCreating(false);
+  }
+
+  function closeEdit() {
+    setEditing(null);
+    setCreating(false);
+  }
+
+  function toggleTutor(id?: number | null) {
+    if (!id) return;
+    setSelectedTutorIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  }
+
+  async function createTutorInsidePet() {
+    if (!tutorForm.full_name.trim()) return;
+    const created = await onCreateTutor({ ...tutorForm, whatsapp: tutorForm.whatsapp || tutorForm.phone });
+    if (created?.id) {
+      setSelectedTutorIds((current) => current.includes(created.id!) ? current : [...current, created.id!]);
+      setTutorForm({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
+      setShowTutorForm(false);
+    }
   }
 
   function uploadPetPhoto(file?: File) {
@@ -978,6 +1076,7 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
             <select value={sizeFilter} onChange={(event) => setSizeFilter(event.target.value)}><option value="all">Todos os portes</option><option>Pequeno</option><option>Medio</option><option>Grande</option></select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Todos os status</option><option>Ativo</option></select>
             <button onClick={() => { setQuery(""); setBreedFilter("all"); setSizeFilter("all"); setStatusFilter("all"); }}><Filter size={18} />Filtros</button>
+            <button className="new-client-button" onClick={openCreate}><Plus size={18} />Novo pet</button>
           </div>
           <div className="pets-table">
             <div className="pets-table-head"><span></span><span>Pet</span><span>Tutor</span><span>Raca</span><span>Porte</span><span>Idade</span><span>Status</span><span>Ultima atividade</span><span></span></div>
@@ -1028,22 +1127,46 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
         </div>
       )}
 
-      {editing && (
+      {(creating || editing) && (
         <div className="reservation-modal-backdrop">
           <form className="reservation-modal pet-edit-modal" onSubmit={saveEdit}>
-            <div className="reservation-detail-head"><h2>Editar pet</h2><button type="button" onClick={() => setEditing(null)}><X size={18} /></button></div>
-            <label>Nome<input value={editForm.name || ""} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} /></label>
+            <div className="reservation-detail-head"><h2>{editing ? "Editar pet" : "Novo pet"}</h2><button type="button" onClick={closeEdit}><X size={18} /></button></div>
+            <label>Nome<input required value={editForm.name || ""} onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))} /></label>
             <label>Raca<input value={editForm.breed || ""} onChange={(event) => setEditForm((current) => ({ ...current, breed: event.target.value }))} /></label>
             <label>Porte<select value={editForm.size || "Pequeno"} onChange={(event) => setEditForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
             <label>Sexo<select value={editForm.sex || ""} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value }))}><option value="">Nao informado</option><option>Macho</option><option>Femea</option></select></label>
             <label>Peso<input type="number" value={editForm.weight ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, weight: Number(event.target.value) }))} /></label>
             <label>Nascimento<input type="date" value={editForm.birth_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, birth_date: event.target.value }))} /></label>
+            <div className="pet-tutor-picker span-2">
+              <div className="pet-tutor-picker-head">
+                <div><strong>Tutores vinculados</strong><span>Selecione um ou mais tutores para este pet.</span></div>
+                <button type="button" onClick={() => setShowTutorForm((current) => !current)}><Plus size={16} />Novo tutor</button>
+              </div>
+              <div className="pet-tutor-options">
+                {tutors.map((tutor) => (
+                  <label key={tutor.key} className={selectedTutorIds.includes(Number(tutor.id)) ? "active" : ""}>
+                    <input type="checkbox" checked={selectedTutorIds.includes(Number(tutor.id))} onChange={() => toggleTutor(tutor.id)} disabled={!tutor.id} />
+                    <span><b>{tutor.name}</b><small>{tutor.phone || tutor.email || "Contato nao informado"}</small></span>
+                  </label>
+                ))}
+                {tutors.length === 0 && <p className="admin-empty">Nenhum tutor cadastrado ainda. Crie um novo tutor abaixo.</p>}
+              </div>
+              {showTutorForm && (
+                <div className="pet-inline-tutor-form">
+                  <label>Nome do tutor<input value={tutorForm.full_name} onChange={(event) => setTutorForm((current) => ({ ...current, full_name: event.target.value }))} /></label>
+                  <label>Telefone<input value={tutorForm.phone || ""} onChange={(event) => setTutorForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+                  <label>E-mail<input type="email" value={tutorForm.email || ""} onChange={(event) => setTutorForm((current) => ({ ...current, email: event.target.value }))} /></label>
+                  <label>Endereco<input value={tutorForm.address || ""} onChange={(event) => setTutorForm((current) => ({ ...current, address: event.target.value }))} /></label>
+                  <button type="button" className="approve-action" onClick={createTutorInsidePet}><Check size={16} />Salvar tutor e vincular</button>
+                </div>
+              )}
+            </div>
             <label className="span-2">Foto do pet<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadPetPhoto(event.target.files?.[0])} /></label>
             {editForm.photo_url && <div className="pet-photo-preview span-2"><img src={editForm.photo_url} alt="Previa da foto do pet" /><span>Previa da foto cadastrada</span><button type="button" onClick={() => setEditForm((current) => ({ ...current, photo_url: "" }))}>Remover foto</button></div>}
             <label className="span-2">Restricoes alimentares<textarea rows={3} value={editForm.food_restrictions || ""} onChange={(event) => setEditForm((current) => ({ ...current, food_restrictions: event.target.value }))} /></label>
             <label className="span-2">Medicamentos<textarea rows={3} value={editForm.medications || ""} onChange={(event) => setEditForm((current) => ({ ...current, medications: event.target.value }))} /></label>
             <label className="span-2">Anotacoes importantes<textarea rows={4} value={editForm.important_notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, important_notes: event.target.value }))} /></label>
-            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar pet</button>
+            <button className="approve-action span-2" type="submit"><Check size={18} />{editing ? "Salvar pet" : "Cadastrar pet"}</button>
           </form>
         </div>
       )}
@@ -1955,12 +2078,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? 0);
   const [selectedTutorKey, setSelectedTutorKey] = useState("");
   const [extraTutors, setExtraTutors] = useState<TutorRecord[]>([]);
+  const [allTutors, setAllTutors] = useState<TutorRecord[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [adminRecords, setAdminRecords] = useState<AdminRecord[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
-  const tutors = useMemo(() => [...buildTutors(petItems, items), ...extraTutors], [petItems, items, extraTutors]);
+  const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
 
   function adminHeaders() {
     return {
@@ -1999,6 +2123,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   async function loadAdminRecords(headers = adminHeaders()) {
     const response = await fetch("/api/admin/records", { headers });
     if (response.ok) setAdminRecords(await response.json());
+  }
+
+  async function loadTutors(headers = adminHeaders()) {
+    const response = await fetch("/api/admin/tutors", { headers });
+    if (response.ok) {
+      const loaded = await response.json() as Tutor[];
+      setAllTutors(loaded.map(tutorRecordFromTutor));
+    }
   }
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
@@ -2050,6 +2182,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         }
       });
       if (usersResponse.ok) setUsers(await usersResponse.json());
+      await loadTutors({
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      });
       await loadAdminRecords({
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
@@ -2092,6 +2228,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       setAccessToken("");
       const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
       if (usersResponse.ok) setUsers(await usersResponse.json());
+      await loadTutors();
       await loadAdminRecords();
     } else {
       setLoginMessage("Login nao autorizado. Confira seu e-mail e senha.");
@@ -2166,6 +2303,22 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function createPetFields(payload: PetPayload) {
+    const response = await fetch("/api/admin/pets", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const created = await response.json() as PetOption;
+      setPetItems((current) => [created, ...current]);
+      setSelectedPetId(created.id);
+      return created;
+    }
+    return null;
+  }
+
   async function createTutorRecord(payload: TutorPayload) {
     const response = await fetch("/api/admin/tutors", {
       method: "POST",
@@ -2175,7 +2328,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
     if (response.ok) {
       const created = await response.json();
-      setExtraTutors((current) => [{
+      const tutor = {
         key: `tutor-${created.id}`,
         id: created.id,
         name: created.full_name,
@@ -2185,9 +2338,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         created_at: created.created_at,
         pets: [],
         reservations: []
-      }, ...current]);
+      };
+      setExtraTutors((current) => [tutor, ...current]);
       setSelectedTutorKey(`tutor-${created.id}`);
+      return tutor;
     }
+    return null;
   }
 
   async function updateTutorRecord(id: number, payload: TutorPatch) {
@@ -2396,10 +2552,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {adminPage === "pets" && (
         <AdminPetsPage
           pets={petItems}
+          tutors={tutors}
           reservations={items}
           selectedPetId={selectedPetId}
           setSelectedPetId={setSelectedPetId}
+          onCreate={createPetFields}
           onPatch={updatePetFields}
+          onCreateTutor={createTutorRecord}
         />
       )}
 

@@ -2720,6 +2720,103 @@ textarea { resize: vertical; }
   font-weight: 900;
   cursor: pointer;
 }
+.pet-tutor-picker {
+  display: grid;
+  gap: 14px;
+  border: 1px solid #dce7f5;
+  border-radius: 18px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(221, 251, 246, .64), rgba(239, 232, 255, .42));
+}
+.pet-tutor-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.pet-tutor-picker-head strong,
+.pet-tutor-picker-head span {
+  display: block;
+}
+.pet-tutor-picker-head strong {
+  color: #061b42;
+  font-size: 15px;
+  font-weight: 900;
+}
+.pet-tutor-picker-head span {
+  margin-top: 3px;
+  color: #657492;
+  font-size: 12px;
+  font-weight: 800;
+}
+.pet-tutor-picker-head button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  padding: 0 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #14bbb0, #009f98);
+  font-weight: 900;
+  cursor: pointer;
+}
+.pet-tutor-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 210px;
+  overflow: auto;
+}
+.pet-tutor-options label {
+  min-height: 62px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid #dce7f5;
+  border-radius: 14px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, .88);
+  cursor: pointer;
+}
+.pet-tutor-options label.active {
+  border-color: #14bbb0;
+  background: #e1fbf7;
+  box-shadow: 0 10px 20px rgba(20, 187, 176, .12);
+}
+.pet-tutor-options input {
+  width: 18px;
+  height: 18px;
+  accent-color: #14bbb0;
+}
+.pet-tutor-options b,
+.pet-tutor-options small {
+  display: block;
+}
+.pet-tutor-options b {
+  color: #061b42;
+  font-size: 13px;
+  font-weight: 900;
+}
+.pet-tutor-options small {
+  margin-top: 3px;
+  color: #657492;
+  font-size: 11px;
+  font-weight: 800;
+}
+.pet-inline-tutor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  border-top: 1px solid rgba(7, 29, 58, .1);
+  padding-top: 14px;
+}
+.pet-inline-tutor-form .approve-action {
+  grid-column: span 2;
+}
 .pet-info-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
