@@ -587,6 +587,139 @@ textarea { resize: vertical; }
   font-size: 10px;
   font-weight: 900;
 }
+.admin-notification-wrap {
+  position: relative;
+}
+.admin-notification-popover {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 50;
+  width: min(380px, calc(100vw - 32px));
+  border: 1px solid #edf1f7;
+  border-radius: 16px;
+  padding: 14px;
+  background: #fff;
+  box-shadow: 0 22px 60px rgba(7, 29, 58, .18);
+}
+.admin-notification-popover:before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 18px;
+  width: 14px;
+  height: 14px;
+  border-left: 1px solid #edf1f7;
+  border-top: 1px solid #edf1f7;
+  background: #fff;
+  transform: rotate(45deg);
+}
+.admin-notification-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid #edf1f7;
+}
+.admin-notification-head strong,
+.admin-notification-head small {
+  display: block;
+}
+.admin-notification-head strong {
+  color: #071d3a;
+  font-size: 16px;
+  font-weight: 900;
+}
+.admin-notification-head small {
+  margin-top: 4px;
+  color: #405672;
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-notification-head button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #173054;
+  background: #eef3f8;
+  cursor: pointer;
+}
+.admin-notification-list {
+  display: grid;
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px 0;
+}
+.admin-notification-list > button {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-notification-list > button:hover {
+  background: #f5fbfb;
+}
+.admin-notification-list i {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  font-style: normal;
+}
+.admin-notification-list i.pending { color: #e7a310; background: #fff0cf; }
+.admin-notification-list i.confirmed { color: #0aa895; background: #dffaf3; }
+.admin-notification-list i.done { color: #8f5fe8; background: #efe8ff; }
+.admin-notification-list i.canceled { color: #ed4f91; background: #ffe0eb; }
+.admin-notification-list strong,
+.admin-notification-list small,
+.admin-notification-list em {
+  display: block;
+}
+.admin-notification-list strong {
+  color: #071d3a;
+  font-size: 13px;
+  font-weight: 900;
+}
+.admin-notification-list small {
+  margin-top: 3px;
+  color: #405672;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.admin-notification-list em {
+  margin-top: 5px;
+  color: #0aa895;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 900;
+}
+.admin-notification-popover footer {
+  border-top: 1px solid #edf1f7;
+  padding-top: 12px;
+}
+.admin-notification-popover footer button {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #14bbb0;
+  border-radius: 12px;
+  color: #fff;
+  background: #14bbb0;
+  font-weight: 900;
+  cursor: pointer;
+}
 .admin-date {
   height: 46px;
   display: inline-flex;

@@ -350,6 +350,87 @@ function buildTutors(pets: PetOption[], reservations: Reservation[]) {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+type NotificationItem = {
+  key: string;
+  title: string;
+  text: string;
+  meta: string;
+  tone: "pending" | "confirmed" | "done" | "canceled";
+};
+
+function buildAdminNotifications(reservations: Reservation[]) {
+  const today = localDateKey();
+  const pending = reservations
+    .filter((item) => item.status === "Aguardando aprovacao" || item.status === "Pendente")
+    .slice(0, 4)
+    .map((item) => ({
+      key: `pending-${item.id}`,
+      title: "Reserva aguardando aprovacao",
+      text: `${item.pet_name} - ${serviceKind(item.service)} com ${item.tutor_name}`,
+      meta: `${dateLabel(item.entry_date)} ${item.expected_time || ""}`.trim(),
+      tone: "pending" as const
+    }));
+  const checkins = reservations
+    .filter((item) => item.entry_date === today && ["Confirmada", "Aguardando aprovacao", "Pendente"].includes(item.status))
+    .slice(0, 4)
+    .map((item) => ({
+      key: `checkin-${item.id}`,
+      title: "Check-in previsto hoje",
+      text: `${item.pet_name} chega para ${serviceKind(item.service)}`,
+      meta: item.expected_time || "Horario nao informado",
+      tone: "confirmed" as const
+    }));
+  const inProgress = reservations
+    .filter((item) => item.status === "Em andamento")
+    .slice(0, 3)
+    .map((item) => ({
+      key: `progress-${item.id}`,
+      title: "Atendimento em andamento",
+      text: `${item.pet_name} esta em ${serviceKind(item.service)}`,
+      meta: item.exit_date ? `Saida ${dateLabel(item.exit_date)}` : "Acompanhar atendimento",
+      tone: "done" as const
+    }));
+
+  return [...pending, ...checkins, ...inProgress].slice(0, 8);
+}
+
+function AdminNotificationBell({ reservations, fallbackCount = 0, onOpenReservations }: { reservations?: Reservation[]; fallbackCount?: number; onOpenReservations?: (status?: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const notifications = buildAdminNotifications(reservations || []);
+  const count = reservations ? notifications.length : fallbackCount;
+
+  function openPending() {
+    setOpen(false);
+    onOpenReservations?.("Aguardando aprovacao");
+  }
+
+  return (
+    <div className="admin-notification-wrap">
+      <button className="admin-bell" type="button" onClick={() => setOpen((current) => !current)}><Bell size={20} />{count > 0 && <span>{count}</span>}</button>
+      {open && (
+        <div className="admin-notification-popover">
+          <div className="admin-notification-head">
+            <div><strong>Notificacoes</strong><small>{count > 0 ? `${count} alerta(s) para acompanhar` : "Tudo certo por enquanto"}</small></div>
+            <button onClick={() => setOpen(false)}><X size={16} /></button>
+          </div>
+          <div className="admin-notification-list">
+            {notifications.map((item) => (
+              <button key={item.key} onClick={item.tone === "pending" ? openPending : () => setOpen(false)}>
+                <i className={item.tone}><Bell size={14} /></i>
+                <span><strong>{item.title}</strong><small>{item.text}</small><em>{item.meta}</em></span>
+              </button>
+            ))}
+            {notifications.length === 0 && <p className="admin-empty">Nenhuma notificacao importante agora.</p>}
+          </div>
+          <footer>
+            <button onClick={openPending}>Ver reservas pendentes</button>
+          </footer>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function petAge(pet: PetOption) {
   if (!pet.birth_date) return "-";
   const birth = new Date(`${pet.birth_date}T12:00:00`);
@@ -395,6 +476,7 @@ function tutorLastReservation(tutor: TutorRecord) {
 type AdminRecordsPageProps = {
   config: ModuleConfig;
   records: AdminRecord[];
+  reservations: Reservation[];
   onCreate: (payload: AdminRecordPayload) => Promise<void>;
   onPatch: (id: number, payload: Partial<AdminRecordPayload>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -405,7 +487,7 @@ function recordValue(record: AdminRecord | AdminRecordPayload, key: string) {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: AdminRecordsPageProps) {
+function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, onDelete }: AdminRecordsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [detail, setDetail] = useState<AdminRecord | null>(null);
@@ -491,7 +573,7 @@ function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: Admi
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Buscar em ${config.title.toLowerCase()}...`} /><Search size={20} /></label>
-          <button className="admin-bell"><Bell size={20} /><span>{mergedRecords.length}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={mergedRecords.length} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -580,13 +662,14 @@ function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: Admi
 
 type AdminTutorsPageProps = {
   tutors: TutorRecord[];
+  reservations: Reservation[];
   selectedTutorKey: string;
   setSelectedTutorKey: (key: string) => void;
   onCreate: (payload: TutorPayload) => Promise<void>;
   onPatch: (id: number, payload: TutorPatch) => Promise<void>;
 };
 
-function AdminTutorsPage({ tutors, selectedTutorKey, setSelectedTutorKey, onCreate, onPatch }: AdminTutorsPageProps) {
+function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTutorKey, onCreate, onPatch }: AdminTutorsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [areaFilter, setAreaFilter] = useState("all");
@@ -667,7 +750,7 @@ function AdminTutorsPage({ tutors, selectedTutorKey, setSelectedTutorKey, onCrea
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar tutor por nome, e-mail ou telefone..." /><Search size={20} /></label>
-          <button className="admin-bell"><Bell size={20} /><span>{newTutors}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={newTutors} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -865,7 +948,7 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pet por nome, raca, tutor..." /><Search size={20} /></label>
-          <button className="admin-bell"><Bell size={20} /><span>{pets.length}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={pets.length} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -1078,7 +1161,7 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
           <p>Visualize e gerencie todos os servicos e atividades agendadas.</p>
         </div>
         <div className="admin-topbar-tools">
-          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
           <div className="admin-date"><CalendarDays size={20} />{fullDateLabel(selected)}</div>
         </div>
       </header>
@@ -1286,7 +1369,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
           <p>Gerencie as entradas e saidas de pets de forma rapida e pratica.</p>
         </div>
         <div className="admin-topbar-tools">
-          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -1453,7 +1536,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, tutor ou pet..." /><Search size={20} /></label>
-          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -1715,7 +1798,7 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
         <div className="admin-topbar-tools">
           <label className="admin-search"><input placeholder="Buscar..." /><Search size={20} /></label>
           <button className="dashboard-edit-button" onClick={() => setEditorOpen(true)}><Edit3 size={18} />Editar widgets</button>
-          <button className="admin-bell" onClick={() => onOpenReservations("Aguardando aprovacao")}><Bell size={20} /><span>{reservations.filter((item) => item.status === "Aguardando aprovacao" || item.status === "Pendente").length}</span></button>
+          <AdminNotificationBell reservations={reservations} onOpenReservations={onOpenReservations} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
@@ -2312,6 +2395,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {adminPage === "clients" && (
         <AdminTutorsPage
           tutors={tutors}
+          reservations={items}
           selectedTutorKey={selectedTutorKey}
           setSelectedTutorKey={setSelectedTutorKey}
           onCreate={createTutorRecord}
@@ -2367,6 +2451,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         <AdminRecordsPage
           config={currentModuleConfig}
           records={adminRecords.filter((record) => record.module_key === currentModuleConfig.key)}
+          reservations={items}
           onCreate={createAdminRecordItem}
           onPatch={updateAdminRecordItem}
           onDelete={deleteAdminRecordItem}
