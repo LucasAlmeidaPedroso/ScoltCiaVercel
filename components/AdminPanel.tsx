@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, Reservation, TutorPayload, UserPayload } from "@/lib/types";
+import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, Reservation, ReservationPayload, TutorPayload, UserPayload } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
@@ -219,6 +219,7 @@ function serviceKind(value: string) {
   const normalized = value.toLowerCase();
   if (normalized.includes("hosped")) return "Hospedagem";
   if (normalized.includes("banho") || normalized.includes("tosa")) return "Banho e Tosa";
+  if (normalized.includes("ativ") || normalized.includes("passeio") || normalized.includes("recre")) return "Atividade";
   return "Day Care";
 }
 
@@ -285,6 +286,7 @@ function serviceIconClass(service: string) {
   const kind = serviceKind(service);
   if (kind === "Hospedagem") return "hosting";
   if (kind === "Banho e Tosa") return "grooming";
+  if (kind === "Atividade") return "activity";
   return "daycare";
 }
 
@@ -967,6 +969,220 @@ type AdminReservationsPageProps = {
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
 };
 
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function dateInputValue(date: Date) {
+  return localDateKey(date);
+}
+
+function minutesFromTime(value?: string) {
+  if (!value) return 8 * 60;
+  const [hours = "8", minutes = "0"] = value.split(":");
+  return Number(hours) * 60 + Number(minutes);
+}
+
+function agendaEndTime(item: Reservation) {
+  const start = minutesFromTime(item.expected_time);
+  const duration = serviceKind(item.service) === "Hospedagem" ? 120 : serviceKind(item.service) === "Banho e Tosa" ? 90 : serviceKind(item.service) === "Atividade" ? 60 : 240;
+  const end = start + duration;
+  return `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+}
+
+type AdminAgendaPageProps = {
+  reservations: Reservation[];
+  pendingCount: number;
+  onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
+  onCreate: (payload: ReservationPayload) => Promise<void>;
+};
+
+function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: AdminAgendaPageProps) {
+  const [selectedDate, setSelectedDate] = useState(localDateKey());
+  const [viewMode, setViewMode] = useState<"Dia" | "Semana" | "Mes">("Dia");
+  const [detail, setDetail] = useState<Reservation | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState<ReservationPayload>({
+    tutor_name: "",
+    phone: "",
+    email: "",
+    pet_name: "",
+    breed: "",
+    size: "",
+    service: "Day Care",
+    entry_date: selectedDate,
+    exit_date: "",
+    expected_time: "08:00",
+    notes: ""
+  });
+  const selected = new Date(`${selectedDate}T12:00:00`);
+  const monthStart = new Date(selected.getFullYear(), selected.getMonth(), 1);
+  const monthDays = Array.from({ length: new Date(selected.getFullYear(), selected.getMonth() + 1, 0).getDate() }, (_, index) => new Date(selected.getFullYear(), selected.getMonth(), index + 1));
+  const leadingDays = Array.from({ length: monthStart.getDay() }, (_, index) => addDays(monthStart, index - monthStart.getDay()));
+  const calendarDays = [...leadingDays, ...monthDays];
+  const weekStart = addDays(selected, -selected.getDay());
+  const weekEnd = addDays(weekStart, 6);
+  const dayItems = reservations.filter((item) => {
+    if (viewMode === "Dia") return item.entry_date === selectedDate;
+    if (viewMode === "Semana") return item.entry_date >= dateInputValue(weekStart) && item.entry_date <= dateInputValue(weekEnd);
+    return item.entry_date.slice(0, 7) === selectedDate.slice(0, 7);
+  }).sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""));
+  const nextItems = reservations
+    .filter((item) => item.entry_date >= selectedDate && !["Cancelada", "Reprovada"].includes(item.status))
+    .sort((a, b) => `${a.entry_date} ${a.expected_time || ""}`.localeCompare(`${b.entry_date} ${b.expected_time || ""}`))
+    .slice(0, 5);
+  const hours = Array.from({ length: 13 }, (_, index) => index + 7);
+  const columns = [
+    { title: "Hospedagem", service: "Hospedagem", icon: Home, className: "hosting" },
+    { title: "Day Care", service: "Day Care", icon: Users, className: "daycare" },
+    { title: "Banho e Tosa", service: "Banho e Tosa", icon: Scissors, className: "grooming" },
+    { title: "Atividades", service: "Atividade", icon: PawPrint, className: "activity" }
+  ];
+
+  function openCreate(date = selectedDate, service = "Day Care", time = "08:00") {
+    setCreating(true);
+    setDetail(null);
+    setForm({
+      tutor_name: "",
+      phone: "",
+      email: "",
+      pet_name: "",
+      breed: "",
+      size: "",
+      service,
+      entry_date: date,
+      exit_date: service === "Hospedagem" ? date : "",
+      expected_time: time,
+      notes: ""
+    });
+  }
+
+  async function saveAgenda(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onCreate({ ...form, exit_date: form.exit_date || null });
+    setCreating(false);
+  }
+
+  async function patchFromDetail(id: number, payload: ReservationPatch) {
+    await onPatch(id, payload);
+    setDetail(null);
+  }
+
+  return (
+    <section className="admin-main admin-agenda-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>Agenda</h1>
+          <p>Visualize e gerencie todos os servicos e atividades agendadas.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />{fullDateLabel(selected)}</div>
+        </div>
+      </header>
+
+      <div className="agenda-toolbar">
+        <button onClick={() => setSelectedDate(localDateKey())}>Hoje</button>
+        <button onClick={() => setSelectedDate(dateInputValue(addDays(selected, -1)))}><ArrowLeft size={16} /></button>
+        <button onClick={() => setSelectedDate(dateInputValue(addDays(selected, 1)))}><ArrowRight size={16} /></button>
+        <strong>{new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "long", year: "numeric" }).format(selected)}</strong>
+        <div className="agenda-view-switch">
+          {(["Dia", "Semana", "Mes"] as const).map((mode) => <button key={mode} className={viewMode === mode ? "active" : ""} onClick={() => setViewMode(mode)}>{mode}</button>)}
+        </div>
+        <button className="new-client-button" onClick={() => openCreate()}><Plus size={18} />Novo agendamento</button>
+      </div>
+
+      <div className="agenda-layout">
+        <section className="agenda-board">
+          <div className="agenda-grid agenda-grid-head">
+            <span></span>
+            {columns.map(({ title, icon: Icon, className }) => <strong key={title} className={className}><Icon size={18} />{title}</strong>)}
+          </div>
+          <div className="agenda-grid agenda-grid-body">
+            {hours.map((hour) => (
+              <div className="agenda-hour-row" key={hour}>
+                <time>{String(hour).padStart(2, "0")}:00</time>
+                {columns.map((column) => {
+                  const slotItems = dayItems.filter((item) => serviceKind(item.service) === column.service && Math.floor(minutesFromTime(item.expected_time) / 60) === hour);
+                  return (
+                    <div key={column.service} className="agenda-slot" onDoubleClick={() => openCreate(selectedDate, column.service, `${String(hour).padStart(2, "0")}:00`)}>
+                      {slotItems.map((item) => (
+                        <button key={item.id} className={`agenda-event ${column.className}`} onClick={() => setDetail(item)}>
+                          <strong>{item.pet_name}</strong>
+                          <span>{serviceKind(item.service)}</span>
+                          <small>{item.expected_time || "--:--"} - {agendaEndTime(item)}</small>
+                          <em>{item.tutor_name || `${reservationDays(item)} pet(s)`}</em>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <aside className="agenda-side">
+          <section className="admin-panel-card agenda-calendar">
+            <div className="admin-card-head"><h2>{new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(selected)}</h2><button onClick={() => setSelectedDate(dateInputValue(addDays(selected, 30)))}><ChevronRight size={16} /></button></div>
+            <div className="agenda-weekdays">{["D", "S", "T", "Q", "Q", "S", "S"].map((day) => <b key={day}>{day}</b>)}</div>
+            <div className="agenda-calendar-grid">
+              {calendarDays.map((day) => {
+                const value = dateInputValue(day);
+                const hasItems = reservations.some((item) => item.entry_date === value);
+                return <button key={value} className={`${value === selectedDate ? "active" : ""} ${day.getMonth() !== selected.getMonth() ? "muted" : ""} ${hasItems ? "has-items" : ""}`} onClick={() => setSelectedDate(value)}>{day.getDate()}</button>;
+              })}
+            </div>
+          </section>
+
+          <section className="admin-panel-card agenda-next">
+            <div className="admin-card-head"><h2>Proximos agendamentos</h2><button>Ver todos</button></div>
+            {nextItems.map((item) => <button key={item.id} onClick={() => setDetail(item)}><div className="admin-pet-thumb">{item.pet_name.slice(0, 1)}</div><span><strong>{serviceKind(item.service)}</strong><small>{item.pet_name}</small></span><em>{item.entry_date === selectedDate ? "Hoje" : dateLabel(item.entry_date)} - {item.expected_time || "--:--"}</em><b className={statusClass(item.status)}>{item.status}</b></button>)}
+            {nextItems.length === 0 && <p className="admin-empty">Nenhum agendamento encontrado.</p>}
+          </section>
+        </aside>
+      </div>
+
+      <div className="agenda-legend"><strong>Legenda:</strong>{columns.map((column) => <span key={column.service} className={column.className}>{column.title}</span>)}</div>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+          <aside className="reservation-detail-card reservation-detail-modal">
+            <div className="reservation-detail-head"><h2>{detail.pet_name}</h2><em className={`reservation-status ${statusClass(detail.status)}`}>{detail.status}</em><button onClick={() => setDetail(null)}><X size={18} /></button></div>
+            <div className="reservation-detail-section"><h3>Agendamento</h3><dl><dt>Servico</dt><dd>{serviceKind(detail.service)}</dd><dt>Data</dt><dd>{dateLabel(detail.entry_date)}</dd><dt>Horario</dt><dd>{detail.expected_time || "--:--"} - {agendaEndTime(detail)}</dd><dt>Tutor</dt><dd>{detail.tutor_name}</dd><dt>Telefone</dt><dd>{detail.phone}</dd></dl></div>
+            <div className="reservation-detail-section"><h3>Observacoes</h3><p>{detail.notes || "Sem observacoes cadastradas."}</p></div>
+            <div className="reservation-detail-actions">
+              <button className="edit" onClick={() => patchFromDetail(detail.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Iniciar</button>
+              <button onClick={() => patchFromDetail(detail.id, { status: "Concluida" })}><Check size={16} />Concluir</button>
+              <button className="danger" onClick={() => patchFromDetail(detail.id, { status: "Cancelada" })}><Trash2 size={16} />Cancelar</button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {creating && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal" onSubmit={saveAgenda}>
+            <div className="reservation-detail-head"><h2>Novo agendamento</h2><button type="button" onClick={() => setCreating(false)}><X size={18} /></button></div>
+            <label>Tutor<input required value={form.tutor_name} onChange={(event) => setForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+            <label>Telefone<input required value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label>E-mail<input value={form.email || ""} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
+            <label>Pet<input required value={form.pet_name} onChange={(event) => setForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
+            <label>Servico<select value={form.service} onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}><option>Hospedagem</option><option>Day Care</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Data<input type="date" required value={form.entry_date} onChange={(event) => setForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
+            <label>Horario<input type="time" required value={form.expected_time || ""} onChange={(event) => setForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Raca<input value={form.breed || ""} onChange={(event) => setForm((current) => ({ ...current, breed: event.target.value }))} /></label>
+            <label className="span-2">Observacoes<textarea rows={4} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Salvar agendamento</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
@@ -1076,6 +1292,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
               <option value="Day Care">Day Care</option>
               <option value="Hospedagem">Hospedagem</option>
               <option value="Banho e Tosa">Banho e Tosa</option>
+              <option value="Atividade">Atividade</option>
             </select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">Todos os status</option>
@@ -1168,7 +1385,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             <label>Telefone<input value={editForm.phone || ""} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label>E-mail<input value={editForm.email || ""} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input value={editForm.pet_name || ""} onChange={(event) => setEditForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
-            <label>Servico<select value={editForm.service || "Day Care"} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option></select></label>
+            <label>Servico<select value={editForm.service || "Day Care"} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
             <label>Entrada<input type="date" value={editForm.entry_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={editForm.exit_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
             <label>Horario<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
@@ -1643,6 +1860,20 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function createReservationFields(payload: ReservationPayload) {
+    const response = await fetch("/api/admin/reservations", {
+      method: "POST",
+      headers: adminHeaders(),
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      const created = await response.json();
+      setItems((current) => [created, ...current]);
+      setSelectedId(created.id);
+    }
+  }
+
   async function updatePetFields(id: number, payload: PetPatch) {
     const response = await fetch("/api/admin/pets", {
       method: "PATCH",
@@ -1915,15 +2146,11 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       )}
 
       {adminPage === "agenda" && (
-        <AdminReservationsPage
+        <AdminAgendaPage
           reservations={items}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
-          initialStatus="all"
-          title="Agenda"
-          description="Visualize e organize toda a agenda de reservas da unidade."
           onPatch={updateReservationFields}
+          onCreate={createReservationFields}
         />
       )}
 
