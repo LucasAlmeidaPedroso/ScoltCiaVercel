@@ -996,7 +996,7 @@ type AdminAgendaPageProps = {
   reservations: Reservation[];
   pendingCount: number;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
-  onCreate: (payload: ReservationPayload) => Promise<void>;
+  onCreate: (payload: ReservationPayload) => Promise<Reservation | null>;
 };
 
 function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: AdminAgendaPageProps) {
@@ -1176,6 +1176,189 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
             <label>Raca<input value={form.breed || ""} onChange={(event) => setForm((current) => ({ ...current, breed: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Salvar agendamento</button>
+          </form>
+        </div>
+      )}
+    </section>
+  );
+}
+
+type AdminCheckinPageProps = {
+  reservations: Reservation[];
+  maxCapacity: number;
+  pendingCount: number;
+  onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
+  onCreate: (payload: ReservationPayload) => Promise<Reservation | null>;
+};
+
+function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, onCreate }: AdminCheckinPageProps) {
+  const [tab, setTab] = useState<"checkin" | "checkout">("checkin");
+  const [query, setQuery] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const [detail, setDetail] = useState<Reservation | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [walkInForm, setWalkInForm] = useState<ReservationPayload>({
+    tutor_name: "",
+    phone: "",
+    email: "",
+    pet_name: "",
+    breed: "",
+    size: "",
+    service: "Day Care",
+    entry_date: localDateKey(),
+    exit_date: "",
+    expected_time: new Date().toTimeString().slice(0, 5),
+    notes: "Check-in sem agendamento"
+  });
+  const today = localDateKey();
+  const scheduledStatuses = ["Aguardando aprovacao", "Pendente", "Confirmada"];
+  const scheduledToday = reservations
+    .filter((item) => item.entry_date === today && scheduledStatuses.includes(item.status))
+    .sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""));
+  const inProgressToday = reservations
+    .filter((item) => item.entry_date === today && item.status === "Em andamento")
+    .sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""));
+  const completedToday = reservations.filter((item) => item.entry_date === today && item.status === "Concluida");
+  const sourceItems = tab === "checkin" ? scheduledToday : inProgressToday;
+  const filteredItems = sourceItems.filter((item) => {
+    const text = query.trim().toLowerCase();
+    const matchesText = !text || [item.pet_name, item.tutor_name, item.phone, item.service, item.breed].some((value) => String(value || "").toLowerCase().includes(text));
+    const matchesService = serviceFilter === "all" || serviceKind(item.service) === serviceFilter;
+    return matchesText && matchesService;
+  });
+  const checklistItems = [
+    "Documento de vacinacao atualizado",
+    "Avaliacao comportamental",
+    "Informar alimentacao e rotina",
+    "Itens pessoais entregues",
+    "Termo de responsabilidade assinado"
+  ];
+
+  function openDetail(item: Reservation) {
+    setDetail(item);
+    setCreating(false);
+    setNotes(item.notes || "");
+    setChecklist({});
+  }
+
+  async function confirmCheckin(item: Reservation) {
+    await onPatch(item.id, { status: "Em andamento", notes: notes || item.notes || "Check-in realizado." });
+    setDetail(null);
+  }
+
+  async function confirmCheckout(item: Reservation) {
+    await onPatch(item.id, { status: "Concluida", notes: notes || item.notes || "Check-out realizado." });
+    setDetail(null);
+  }
+
+  function openWalkIn() {
+    setCreating(true);
+    setDetail(null);
+    setWalkInForm({
+      tutor_name: "",
+      phone: "",
+      email: "",
+      pet_name: "",
+      breed: "",
+      size: "",
+      service: "Day Care",
+      entry_date: today,
+      exit_date: "",
+      expected_time: new Date().toTimeString().slice(0, 5),
+      notes: "Check-in sem agendamento"
+    });
+  }
+
+  async function saveWalkIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const created = await onCreate({ ...walkInForm, entry_date: today, exit_date: walkInForm.exit_date || null });
+    if (created) await onPatch(created.id, { status: "Em andamento", notes: walkInForm.notes || "Check-in sem agendamento" });
+    setCreating(false);
+  }
+
+  return (
+    <section className="admin-main admin-checkin-page">
+      <header className="admin-reservations-head">
+        <div>
+          <h1>Check-in / Check-out</h1>
+          <p>Gerencie as entradas e saidas de pets de forma rapida e pratica.</p>
+        </div>
+        <div className="admin-topbar-tools">
+          <button className="admin-bell"><Bell size={20} /><span>{pendingCount}</span></button>
+          <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
+        </div>
+      </header>
+
+      <div className="checkin-tabs">
+        <button className={tab === "checkin" ? "active" : ""} onClick={() => setTab("checkin")}>Check-in</button>
+        <button className={tab === "checkout" ? "active" : ""} onClick={() => setTab("checkout")}>Check-out</button>
+        <button className="new-client-button" onClick={openWalkIn}><Plus size={18} />Check-in sem agendamento</button>
+      </div>
+
+      <div className="reservation-metrics checkin-metrics">
+        <article><span className="aqua"><ArrowRight size={28} /></span><div><small>Previstos para hoje</small><strong>{scheduledToday.length}</strong><em>reservas</em></div></article>
+        <article><span className="yellow"><Clock size={28} /></span><div><small>Ja realizados</small><strong>{completedToday.length}</strong><em>check-outs</em></div></article>
+        <article><span className="purple"><CalendarCheck size={28} /></span><div><small>Pendentes</small><strong>{scheduledToday.length}</strong><em>check-ins</em></div></article>
+        <article><span className="aqua"><ClipboardCheck size={28} /></span><div><small>Capacidade hoje</small><strong>{activeCapacityCount(reservations)} / {maxCapacity}</strong><em>vagas ocupadas</em></div></article>
+      </div>
+
+      <section className="reservation-table-card checkin-list-card">
+        <div className="admin-card-head checkin-list-title"><h2>{tab === "checkin" ? `Reservas para hoje (${new Intl.DateTimeFormat("pt-BR").format(new Date(`${today}T12:00:00`))})` : "Pets em atendimento"}</h2></div>
+        <div className="reservation-filterbar checkin-filterbar">
+          <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por pet ou tutor..." /></label>
+          <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}><option value="all">Todos os servicos</option><option value="Hospedagem">Hospedagem</option><option value="Day Care">Day Care</option><option value="Banho e Tosa">Banho e Tosa</option><option value="Atividade">Atividade</option></select>
+        </div>
+        <div className="checkin-list">
+          {filteredItems.map((item) => (
+            <button key={item.id} className="checkin-row" onClick={() => openDetail(item)}>
+              <time>{item.expected_time || "--:--"}</time>
+              <span className="reservation-pet-cell"><i>{item.pet_name.slice(0, 1)}</i><span><b>{item.pet_name}</b><small>Tutor: {item.tutor_name}</small></span></span>
+              <em className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</em>
+              <strong className={`reservation-status ${statusClass(item.status)}`}>{tab === "checkin" ? "Pendente" : "Em atendimento"}</strong>
+              <span className="checkin-row-action">{tab === "checkin" ? "Fazer check-in" : "Fazer check-out"}</span>
+            </button>
+          ))}
+          {filteredItems.length === 0 && <p className="admin-empty">{tab === "checkin" ? "Nenhuma reserva agendada pendente para hoje." : "Nenhum pet em atendimento agora."}</p>}
+        </div>
+      </section>
+
+      {detail && (
+        <div className="reservation-modal-backdrop">
+          <aside className="checkin-detail-modal">
+            <div className="checkin-detail-head">
+              <div className="reservation-detail-avatar">{detail.pet_name.slice(0, 1)}</div>
+              <div><h2>{detail.pet_name}</h2><p>{detail.breed || "Pet"} - {detail.tutor_name} - {detail.phone}</p></div>
+              <em className={`reservation-status ${statusClass(detail.status)}`}>{detail.status}</em>
+              <button onClick={() => setDetail(null)}><X size={18} /></button>
+            </div>
+            <div className="checkin-detail-cards">
+              <article><CalendarDays size={18} /><small>Data e hora da reserva</small><strong>{dateLabel(detail.entry_date)} - {detail.expected_time || "--:--"}</strong></article>
+              <article><Clock size={18} /><small>Previsao de saida</small><strong>{detail.exit_date ? dateLabel(detail.exit_date) : dateLabel(detail.entry_date)} - {agendaEndTime(detail)}</strong></article>
+            </div>
+            <section className="checkin-checklist">
+              <h3>Checklist de {tab === "checkin" ? "check-in" : "check-out"}</h3>
+              {checklistItems.map((item) => <label key={item}><span>{item}</span><input type="checkbox" checked={Boolean(checklist[item])} onChange={(event) => setChecklist((current) => ({ ...current, [item]: event.target.checked }))} /></label>)}
+            </section>
+            <label className="checkin-notes">Observacoes<textarea rows={4} placeholder="Adicionar observacao..." value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+            <button className="approve-action checkin-confirm" onClick={() => tab === "checkin" ? confirmCheckin(detail) : confirmCheckout(detail)}><Check size={18} />{tab === "checkin" ? "Confirmar check-in" : "Confirmar check-out"}</button>
+          </aside>
+        </div>
+      )}
+
+      {creating && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal" onSubmit={saveWalkIn}>
+            <div className="reservation-detail-head"><h2>Check-in sem agendamento</h2><button type="button" onClick={() => setCreating(false)}><X size={18} /></button></div>
+            <label>Tutor<input required value={walkInForm.tutor_name} onChange={(event) => setWalkInForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+            <label>Telefone<input required value={walkInForm.phone} onChange={(event) => setWalkInForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label>E-mail<input value={walkInForm.email || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, email: event.target.value }))} /></label>
+            <label>Pet<input required value={walkInForm.pet_name} onChange={(event) => setWalkInForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
+            <label>Servico<select value={walkInForm.service} onChange={(event) => setWalkInForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Horario<input type="time" required value={walkInForm.expected_time || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label className="span-2">Observacoes<textarea rows={4} value={walkInForm.notes || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Criar e fazer check-in</button>
           </form>
         </div>
       )}
@@ -1871,7 +2054,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       const created = await response.json();
       setItems((current) => [created, ...current]);
       setSelectedId(created.id);
+      return created as Reservation;
     }
+    return null;
   }
 
   async function updatePetFields(id: number, payload: PetPatch) {
@@ -2155,15 +2340,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       )}
 
       {adminPage === "checkin" && (
-        <AdminReservationsPage
+        <AdminCheckinPage
           reservations={items}
-          selectedId={selectedId}
-          setSelectedId={setSelectedId}
+          maxCapacity={maxCapacity}
           pendingCount={countByStatus("Aguardando aprovacao")}
-          initialStatus="Confirmada"
-          title="Check-in / Check-out"
-          description="Receba pets, acompanhe entradas e finalize atendimentos."
           onPatch={updateReservationFields}
+          onCreate={createReservationFields}
         />
       )}
 
