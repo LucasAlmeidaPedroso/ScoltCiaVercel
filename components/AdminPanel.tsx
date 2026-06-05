@@ -1187,6 +1187,7 @@ type DashboardHomeProps = {
   users: AppUser[];
   maxCapacity: number;
   adminName: string;
+  userKey: string;
   onOpenReservations: (status?: string) => void;
   onOpenNewReservation: () => void;
   onOpenUsers: () => void;
@@ -1194,7 +1195,25 @@ type DashboardHomeProps = {
   onExportReport: (kind: "reservas" | "daycare" | "hospedagem" | "financeiro") => void;
 };
 
-function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName, onOpenReservations, onOpenNewReservation, onOpenUsers, onUpdateStatus, onExportReport }: DashboardHomeProps) {
+type DashboardWidgetKey = "kpis" | "line" | "donut" | "next" | "birthdays" | "reports" | "checkins" | "activities" | "indicators";
+
+const dashboardWidgets: Array<{ key: DashboardWidgetKey; title: string; description: string }> = [
+  { key: "kpis", title: "Indicadores principais", description: "Cards de reservas, hospedagem, Day Care e clientes." },
+  { key: "line", title: "Visao geral de reservas", description: "Grafico dos ultimos dias por servico." },
+  { key: "donut", title: "Reservas por servico", description: "Distribuicao entre Day Care, hospedagem e banho." },
+  { key: "next", title: "Proximas reservas", description: "Lista curta dos proximos atendimentos." },
+  { key: "birthdays", title: "Aniversariantes do mes", description: "Pets com aniversario no mes atual." },
+  { key: "reports", title: "Relatorios rapidos", description: "Atalhos para exportacao CSV." },
+  { key: "checkins", title: "Check-ins de hoje", description: "Entradas e saidas programadas para hoje." },
+  { key: "activities", title: "Atividades de hoje", description: "Rotina operacional do dia." },
+  { key: "indicators", title: "Indicadores do mes", description: "Ocupacao, satisfacao, novos clientes e faturamento." }
+];
+
+const defaultDashboardWidgets = dashboardWidgets.map((widget) => widget.key);
+
+function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName, userKey, onOpenReservations, onOpenNewReservation, onOpenUsers, onUpdateStatus, onExportReport }: DashboardHomeProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [visibleWidgets, setVisibleWidgets] = useState<DashboardWidgetKey[]>(defaultDashboardWidgets);
   const today = localDateKey();
   const lastSevenDays = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
@@ -1242,6 +1261,45 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
     ["15:00", "Banho e Tosa", `${todayReservations.filter((item) => serviceKind(item.service) === "Banho e Tosa").length} agendamento(s)`, Scissors],
     ["18:00", "Encerramento do dia", `${checkins.filter((item) => item.status === "Concluida").length} check-in(s) concluidos`, CheckCircle2]
   ] as const;
+  const storageKey = `scoltcia-dashboard-widgets-${userKey || "default"}`;
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(storageKey);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as DashboardWidgetKey[];
+      const allowed = parsed.filter((key) => dashboardWidgets.some((widget) => widget.key === key));
+      setVisibleWidgets(allowed.length ? allowed : defaultDashboardWidgets);
+    } catch {
+      setVisibleWidgets(defaultDashboardWidgets);
+    }
+  }, [storageKey]);
+
+  function isWidgetVisible(widget: DashboardWidgetKey) {
+    return visibleWidgets.includes(widget);
+  }
+
+  function saveWidgets(next: DashboardWidgetKey[]) {
+    const safeNext = next.length ? next : defaultDashboardWidgets;
+    setVisibleWidgets(safeNext);
+    window.localStorage.setItem(storageKey, JSON.stringify(safeNext));
+  }
+
+  function toggleWidget(widget: DashboardWidgetKey) {
+    const next = isWidgetVisible(widget)
+      ? visibleWidgets.filter((item) => item !== widget)
+      : [...visibleWidgets, widget];
+    saveWidgets(next);
+  }
+
+  function moveWidget(widget: DashboardWidgetKey, direction: -1 | 1) {
+    const index = visibleWidgets.indexOf(widget);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= visibleWidgets.length) return;
+    const next = [...visibleWidgets];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    saveWidgets(next);
+  }
 
   return (
     <section className="admin-main admin-dashboard-page">
@@ -1252,20 +1310,21 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search"><input placeholder="Buscar..." /><Search size={20} /></label>
+          <button className="dashboard-edit-button" onClick={() => setEditorOpen(true)}><Edit3 size={18} />Editar widgets</button>
           <button className="admin-bell" onClick={() => onOpenReservations("Aguardando aprovacao")}><Bell size={20} /><span>{reservations.filter((item) => item.status === "Aguardando aprovacao" || item.status === "Pendente").length}</span></button>
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
       </header>
 
-      <div className="admin-kpi-grid">
+      {isWidgetVisible("kpis") && <div className="admin-kpi-grid dashboard-widget" style={{ order: visibleWidgets.indexOf("kpis") }}>
         <button className="admin-kpi kpi-aqua" onClick={() => onOpenReservations()}><span><Users size={30} /></span><div><small>Reservas hoje</small><strong>{todayReservations.length}</strong><em>{reservations.length} reserva(s) no total</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(dayCareSeries.map((value, index) => value + hostingSeries[index] + groomingSeries[index]))} /></svg></button>
         <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>Hospedagens ativas</small><strong>{activeHosting.length}</strong><em>{activeCapacityCount(reservations)} ocupacao ativa</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(hostingSeries)} /></svg></button>
         <button className="admin-kpi kpi-yellow" onClick={() => onOpenReservations()}><span><PawPrint size={30} /></span><div><small>Day Care hoje</small><strong>{dayCareToday.length}</strong><em>{Math.max(maxCapacity - todayReservations.length, 0)} vaga(s) livres</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints(dayCareSeries)} /></svg></button>
         <button className="admin-kpi kpi-pink" onClick={onOpenUsers}><span><Heart size={30} /></span><div><small>Clientes ativos</small><strong>{uniqueClientCount(reservations, pets)}</strong><em>{users.length} usuario(s) do sistema</em></div><svg viewBox="0 0 180 44"><polyline points={trendPoints([pets.length, uniqueClientCount(reservations, pets), reservations.length, todayReservations.length])} /></svg></button>
-      </div>
+      </div>}
 
       <div className="admin-dashboard-layout">
-        <section className="admin-panel-card admin-line-card">
+        {isWidgetVisible("line") && <section className="admin-panel-card admin-line-card dashboard-widget" style={{ order: visibleWidgets.indexOf("line") }}>
           <div className="admin-card-head"><h2>Visao geral de reservas</h2><button>Ultimos 7 dias <ChevronRight size={16} /></button></div>
           <div className="admin-chart-legend"><span className="aqua">Day Care</span><span className="purple">Hospedagem</span><span className="yellow">Banho e Tosa</span></div>
           <div className="admin-line-chart">
@@ -1277,58 +1336,58 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
             </svg>
             <div className="admin-x-axis">{lastSevenDays.map((day) => <span key={day}>{dateLabel(day)}</span>)}</div>
           </div>
-        </section>
+        </section>}
 
-        <section className="admin-panel-card admin-donut-card">
+        {isWidgetVisible("donut") && <section className="admin-panel-card admin-donut-card dashboard-widget" style={{ order: visibleWidgets.indexOf("donut") }}>
           <h2>Reservas por servico</h2>
           <div className="admin-donut-wrap"><div className="admin-donut" style={{ "--daycare": `${(serviceCounts["Day Care"] / totalServices) * 100}%`, "--hosting": `${((serviceCounts["Day Care"] + serviceCounts.Hospedagem) / totalServices) * 100}%` } as CSSProperties}><span>Total<strong>{reservations.length}</strong></span></div><div className="admin-donut-legend"><p><i className="aqua"></i>Day Care <strong>{serviceCounts["Day Care"]} ({Math.round((serviceCounts["Day Care"] / totalServices) * 100)}%)</strong></p><p><i className="purple"></i>Hospedagem <strong>{serviceCounts.Hospedagem} ({Math.round((serviceCounts.Hospedagem / totalServices) * 100)}%)</strong></p><p><i className="yellow"></i>Banho e Tosa <strong>{serviceCounts["Banho e Tosa"]} ({Math.round((serviceCounts["Banho e Tosa"] / totalServices) * 100)}%)</strong></p></div></div>
-        </section>
+        </section>}
 
         <aside className="admin-dashboard-side">
 
-          <section className="admin-panel-card admin-next-reservations">
+          {isWidgetVisible("next") && <section className="admin-panel-card admin-next-reservations dashboard-widget" style={{ order: visibleWidgets.indexOf("next") }}>
             <h2>Proximas reservas</h2>
             {nextReservations.map((row) => (
               <article key={row.id}><div className="admin-pet-thumb">{row.pet_name.slice(0, 1)}</div><div><strong>{row.pet_name}</strong><span>{row.service}</span><small>{dateLabel(row.entry_date)} - {row.expected_time || "--:--"}</small></div><b className={row.status === "Confirmada" ? "ok" : "wait"}>{row.status}</b></article>
             ))}
             {nextReservations.length === 0 && <p className="admin-empty">Nenhuma reserva futura.</p>}
             <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver todas as reservas <ChevronRight size={16} /></button>
-          </section>
+          </section>}
 
-          <section className="admin-panel-card admin-birthdays">
+          {isWidgetVisible("birthdays") && <section className="admin-panel-card admin-birthdays dashboard-widget" style={{ order: visibleWidgets.indexOf("birthdays") }}>
             <div className="admin-card-head"><h2>Aniversariantes do mes</h2><a>Ver todos</a></div>
             {birthdays.map((pet) => <article key={pet.id}><div className="admin-pet-thumb">{pet.name.slice(0, 1)}</div><span>{pet.name} {pet.birth_date ? dateLabel(pet.birth_date) : ""}</span><Cake size={26} /></article>)}
             {birthdays.length === 0 && <p className="admin-empty">Cadastre a data de nascimento dos pets para acompanhar aqui.</p>}
-          </section>
+          </section>}
 
-          <section className="admin-panel-card admin-quick-reports">
+          {isWidgetVisible("reports") && <section className="admin-panel-card admin-quick-reports dashboard-widget" style={{ order: visibleWidgets.indexOf("reports") }}>
             <div className="admin-card-head"><h2>Relatorios rapidos</h2><button><Download size={18} /></button></div>
             <button onClick={() => onExportReport("reservas")}><ClipboardCheck size={16} />Relatorio de reservas</button>
             <button onClick={() => onExportReport("daycare")}><ClipboardCheck size={16} />Relatorio de Day Care</button>
             <button onClick={() => onExportReport("hospedagem")}><ClipboardCheck size={16} />Relatorio de Hospedagem</button>
             <button onClick={() => onExportReport("financeiro")}><ClipboardCheck size={16} />Relatorio financeiro</button>
-          </section>
+          </section>}
         </aside>
 
-        <section className="admin-panel-card admin-checkins">
+        {isWidgetVisible("checkins") && <section className="admin-panel-card admin-checkins dashboard-widget" style={{ order: visibleWidgets.indexOf("checkins") }}>
           <h2>Check-ins de hoje</h2>
           {checkins.map((row) => (
             <article key={row.id}><div className="admin-pet-thumb">{row.pet_name.slice(0, 1)}</div><div><strong>{row.pet_name}</strong><span>{row.breed || row.size || row.tutor_name}</span></div><em>{row.service}</em><small><Clock size={14} />{row.expected_time || "--:--"}</small><button className={row.status === "Concluida" ? "ok" : "wait"} onClick={() => onUpdateStatus(row.id, row.status === "Concluida" ? "Em andamento" : "Concluida")}>{row.status === "Concluida" ? "Reabrir" : "Concluir"}</button></article>
           ))}
           {checkins.length === 0 && <p className="admin-empty">Nenhum check-in previsto para hoje.</p>}
           <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver todos check-ins <ChevronRight size={16} /></button>
-        </section>
+        </section>}
 
-        <section className="admin-panel-card admin-activities">
+        {isWidgetVisible("activities") && <section className="admin-panel-card admin-activities dashboard-widget" style={{ order: visibleWidgets.indexOf("activities") }}>
           <h2>Atividades de hoje</h2>
           {activities.map(([time, title, text, Icon]) => {
             const ActivityIcon = Icon as typeof CheckCircle2;
             return <article key={String(title)}><time>{String(time)}</time><span><ActivityIcon size={18} /></span><div><strong>{String(title)}</strong><small>{String(text)}</small></div></article>;
           })}
           <button className="admin-wide-button" onClick={() => onOpenReservations()}>Ver agenda completa <ChevronRight size={16} /></button>
-        </section>
+        </section>}
 
-        <section className="admin-panel-card admin-indicators">
+        {isWidgetVisible("indicators") && <section className="admin-panel-card admin-indicators dashboard-widget" style={{ order: visibleWidgets.indexOf("indicators") }}>
           <h2>Indicadores do mes</h2>
           <div>
             <article><span><PawPrint size={26} /></span><small>Taxa de ocupacao</small><strong>{occupancy}%</strong><em>{todayReservations.length}/{maxCapacity} vagas hoje</em></article>
@@ -1336,9 +1395,39 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
             <article><span><Users size={26} /></span><small>Novos clientes</small><strong>{newClients}</strong><em>Pets cadastrados no mes</em></article>
             <article><span><Scissors size={26} /></span><small>Faturamento estimado</small><strong>{money(estimatedRevenue)}</strong><em>Calculado pelas reservas</em></article>
           </div>
-        </section>
+        </section>}
       </div>
       <button className="admin-floating-action" onClick={onOpenNewReservation}><Plus size={24} /><span>Acoes rapidas</span></button>
+
+      {editorOpen && (
+        <div className="reservation-modal-backdrop">
+          <aside className="dashboard-widget-editor">
+            <div className="reservation-detail-head">
+              <div><h2>Editar widgets</h2><p>Escolha o que aparece no seu dashboard.</p></div>
+              <button onClick={() => setEditorOpen(false)}><X size={18} /></button>
+            </div>
+            <div className="dashboard-widget-list">
+              {dashboardWidgets.map((widget) => {
+                const active = isWidgetVisible(widget.key);
+                const index = visibleWidgets.indexOf(widget.key);
+                return (
+                  <article key={widget.key} className={active ? "active" : ""}>
+                    <label><input type="checkbox" checked={active} onChange={() => toggleWidget(widget.key)} /><span><strong>{widget.title}</strong><small>{widget.description}</small></span></label>
+                    <div>
+                      <button disabled={!active || index <= 0} onClick={() => moveWidget(widget.key, -1)}><ArrowLeft size={14} /></button>
+                      <button disabled={!active || index === visibleWidgets.length - 1} onClick={() => moveWidget(widget.key, 1)}><ArrowRight size={14} /></button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <footer className="dashboard-widget-actions">
+              <button onClick={() => saveWidgets(defaultDashboardWidgets)}>Restaurar padrao</button>
+              <button className="approve-action" onClick={() => setEditorOpen(false)}><Check size={16} />Concluir</button>
+            </footer>
+          </aside>
+        </div>
+      )}
     </section>
   );
 }
@@ -1773,6 +1862,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           users={users}
           maxCapacity={maxCapacity}
           adminName={adminName}
+          userKey={email}
           onOpenReservations={(status = "all") => openReservations(status)}
           onOpenNewReservation={() => openReservations("all")}
           onOpenUsers={openClients}
