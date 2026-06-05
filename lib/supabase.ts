@@ -9,7 +9,7 @@ export function getSupabaseAdmin() {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceKey) {
-    throw new Error("Supabase env vars are missing.");
+    throw new Error("Server configuration is incomplete.");
   }
 
   return createClient(url, serviceKey, {

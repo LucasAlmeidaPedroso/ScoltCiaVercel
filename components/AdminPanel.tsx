@@ -499,7 +499,7 @@ function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: Admi
         <article><span className="purple"><CheckCircle2 size={28} /></span><div><small>Ativos</small><strong>{activeCount}</strong><em>Itens em uso</em></div></article>
         <article><span className="yellow"><Clock size={28} /></span><div><small>Pendentes</small><strong>{mergedRecords.filter((record) => ["Pendente", "Planejada"].includes(record.status)).length}</strong><em>Aguardando acao</em></div></article>
         <article><span className="pink"><Star size={28} /></span><div><small>Modelos</small><strong>{config.defaults.length}</strong><em>Padroes do sistema</em></div></article>
-        <article><span className="aqua"><Edit3 size={28} /></span><div><small>Personalizados</small><strong>{records.length}</strong><em>Salvos no Supabase</em></div></article>
+        <article><span className="aqua"><Edit3 size={28} /></span><div><small>Personalizados</small><strong>{records.length}</strong><em>Salvos no sistema</em></div></article>
       </div>
 
       <section className="reservation-table-card module-table-card">
@@ -517,7 +517,7 @@ function AdminRecordsPage({ config, records, onCreate, onPatch, onDelete }: Admi
           <div className="module-table-head"><span>Item</span><span>Status</span>{config.fields.slice(0, 3).map((field) => <span key={field.key}>{field.label}</span>)}<span></span></div>
           {filteredRecords.map((record) => (
             <button key={`${record.module_key}-${record.id}-${record.title}`} className="module-table-row" onClick={() => setDetail(record)}>
-              <span className="module-title-cell"><i><Icon size={18} /></i><b>{record.title}</b><small>{record.created_at ? "Salvo no Supabase" : "Modelo padrao"}</small></span>
+              <span className="module-title-cell"><i><Icon size={18} /></i><b>{record.title}</b><small>{record.created_at ? "Registro personalizado" : "Modelo padrao"}</small></span>
               <span><em className={`reservation-status ${record.status === "Inativo" ? "done" : record.status === "Cancelado" ? "canceled" : record.status === "Pendente" || record.status === "Planejada" ? "pending" : "confirmed"}`}>{record.status}</em></span>
               {config.fields.slice(0, 3).map((field) => <span key={field.key}><b>{recordValue(record, field.key) || "-"}</b></span>)}
               <span><MoreVertical size={18} /></span>
@@ -1460,7 +1460,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         "Authorization": `Bearer ${token}`
       });
     } else {
-      setLoginMessage("Seu Google entrou, mas esse e-mail nao esta cadastrado como admin.");
+      setLoginMessage("Nao foi possivel acessar o painel com essa conta.");
     }
   }
 
@@ -1499,7 +1499,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       if (usersResponse.ok) setUsers(await usersResponse.json());
       await loadAdminRecords();
     } else {
-      setLoginMessage("Login nao autorizado. Confira e-mail, senha e se o SQL do Supabase foi rodado.");
+      setLoginMessage("Login nao autorizado. Confira seu e-mail e senha.");
     }
   }
 
@@ -1513,7 +1513,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     const supabase = getSupabaseBrowser();
 
     if (!supabase) {
-      setLoginMessage("Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY para usar Google.");
+      setLoginMessage("Login com Google indisponivel no momento.");
       return;
     }
 

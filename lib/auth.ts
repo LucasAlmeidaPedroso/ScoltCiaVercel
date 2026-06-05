@@ -33,7 +33,8 @@ export async function verifyAdminCredentials(email: string, password: string) {
   const normalizedEmail = normalizeEmail(email);
 
   if (!hasSupabaseEnv()) {
-    const fallbackPassword = process.env.ADMIN_PASSWORD || "!Levi@2023";
+    const fallbackPassword = process.env.ADMIN_PASSWORD;
+    if (!fallbackPassword) return null;
     return normalizedEmail === fallbackAdmin.email && password === fallbackPassword ? fallbackAdmin : null;
   }
 
