@@ -2691,7 +2691,7 @@ textarea { resize: vertical; }
 }
 .pet-photo-preview {
   display: grid;
-  grid-template-columns: 88px 1fr;
+  grid-template-columns: 88px 1fr auto;
   gap: 14px;
   align-items: center;
   border: 1px solid #edf1f7;
@@ -2709,6 +2709,16 @@ textarea { resize: vertical; }
   color: #405672;
   font-size: 13px;
   font-weight: 800;
+}
+.pet-photo-preview button {
+  min-height: 38px;
+  border: 1px solid #ffe0eb;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: #ed4f91;
+  background: #fff;
+  font-weight: 900;
+  cursor: pointer;
 }
 .pet-info-grid {
   display: grid;

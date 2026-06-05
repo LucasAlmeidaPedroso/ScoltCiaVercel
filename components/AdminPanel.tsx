@@ -933,6 +933,15 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
     setEditing(null);
   }
 
+  function uploadPetPhoto(file?: File) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditForm((current) => ({ ...current, photo_url: String(reader.result || "") }));
+    };
+    reader.readAsDataURL(file);
+  }
+
   function openDetail(pet: PetOption) {
     setSelectedPetId(pet.id);
     setTab("info");
@@ -1029,8 +1038,8 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
             <label>Sexo<select value={editForm.sex || ""} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value }))}><option value="">Nao informado</option><option>Macho</option><option>Femea</option></select></label>
             <label>Peso<input type="number" value={editForm.weight ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, weight: Number(event.target.value) }))} /></label>
             <label>Nascimento<input type="date" value={editForm.birth_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, birth_date: event.target.value }))} /></label>
-            <label className="span-2">Foto do pet (URL)<input type="url" placeholder="https://..." value={editForm.photo_url || ""} onChange={(event) => setEditForm((current) => ({ ...current, photo_url: event.target.value }))} /></label>
-            {editForm.photo_url && <div className="pet-photo-preview span-2"><img src={editForm.photo_url} alt="Previa da foto do pet" /><span>Previa da foto cadastrada</span></div>}
+            <label className="span-2">Foto do pet<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => uploadPetPhoto(event.target.files?.[0])} /></label>
+            {editForm.photo_url && <div className="pet-photo-preview span-2"><img src={editForm.photo_url} alt="Previa da foto do pet" /><span>Previa da foto cadastrada</span><button type="button" onClick={() => setEditForm((current) => ({ ...current, photo_url: "" }))}>Remover foto</button></div>}
             <label className="span-2">Restricoes alimentares<textarea rows={3} value={editForm.food_restrictions || ""} onChange={(event) => setEditForm((current) => ({ ...current, food_restrictions: event.target.value }))} /></label>
             <label className="span-2">Medicamentos<textarea rows={3} value={editForm.medications || ""} onChange={(event) => setEditForm((current) => ({ ...current, medications: event.target.value }))} /></label>
             <label className="span-2">Anotacoes importantes<textarea rows={4} value={editForm.important_notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, important_notes: event.target.value }))} /></label>
