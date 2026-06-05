@@ -601,9 +601,9 @@ textarea { resize: vertical; }
 }
 .admin-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 18px;
-  margin-bottom: 18px;
+  margin-bottom: 28px;
 }
 .admin-kpi,
 .admin-panel-card {
@@ -614,12 +614,12 @@ textarea { resize: vertical; }
 }
 .admin-kpi {
   position: relative;
-  min-height: 156px;
+  min-height: 142px;
   overflow: hidden;
   display: grid;
   grid-template-columns: 58px 1fr;
   gap: 12px;
-  padding: 22px 20px;
+  padding: 22px 18px;
   border: 1px solid #edf1f7;
   text-align: left;
   font: inherit;
@@ -657,12 +657,7 @@ textarea { resize: vertical; }
   font-weight: 800;
 }
 .admin-kpi svg {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  bottom: 12px;
-  width: calc(100% - 36px);
-  height: 44px;
+  display: none;
 }
 .admin-kpi polyline {
   fill: none;
@@ -680,7 +675,7 @@ textarea { resize: vertical; }
 .kpi-pink > span { color: #ed72aa; background: #ffe0eb; }
 .admin-dashboard-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(300px, .95fr) 318px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
   align-items: start;
 }
@@ -692,16 +687,29 @@ textarea { resize: vertical; }
   align-content: start;
   gap: 18px;
   min-width: 0;
-  grid-row: span 3;
+  grid-column: span 6;
 }
 .admin-panel-card {
   padding: 22px;
 }
 .admin-line-card {
+  grid-column: span 6;
   min-height: 318px;
 }
 .admin-indicators {
-  grid-column: span 2;
+  grid-column: span 12;
+}
+.admin-donut-card {
+  grid-column: span 4;
+}
+.admin-checkins {
+  grid-column: span 5;
+}
+.admin-activities {
+  grid-column: span 4;
+}
+.admin-finance {
+  grid-column: span 3;
 }
 .admin-panel-card h2,
 .admin-card-head h2 {
@@ -849,6 +857,30 @@ textarea { resize: vertical; }
   align-items: center;
   padding: 14px 0;
   border-bottom: 1px solid #edf1f7;
+}
+.admin-finance {
+  min-height: 314px;
+}
+.admin-finance article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 22px 0;
+  border-bottom: 1px solid #edf1f7;
+}
+.admin-finance article:last-child {
+  border-bottom: 0;
+}
+.admin-finance span {
+  color: #405672;
+  font-size: 14px;
+  font-weight: 800;
+}
+.admin-finance strong {
+  color: #0aa895;
+  font-size: 22px;
+  white-space: nowrap;
 }
 .admin-next-reservations article {
   grid-template-columns: 48px 1fr auto;
