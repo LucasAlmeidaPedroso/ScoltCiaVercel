@@ -975,7 +975,7 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
             {filteredPets.map((pet) => (
               <button key={pet.id} className={`pets-table-row ${selected?.id === pet.id ? "active" : ""}`} onClick={() => openDetail(pet)}>
                 <span><input type="checkbox" checked={selected?.id === pet.id} onChange={() => openDetail(pet)} /></span>
-                <span className="reservation-pet-cell"><i>{pet.name.slice(0, 1)}</i><span><b>{pet.name}</b><small>{pet.sex || ""}</small></span></span>
+                <span className="reservation-pet-cell">{pet.photo_url ? <img className="pet-photo-avatar" src={pet.photo_url} alt={pet.name} /> : <i>{pet.name.slice(0, 1)}</i>}<span><b>{pet.name}</b><small>{pet.sex || ""}</small></span></span>
                 <span><b>{pet.tutor_name || "Sem tutor"}</b><small>{pet.tutor_phone || "Telefone nao informado"}</small></span>
                 <span>{pet.breed || "-"}</span>
                 <span><em className={`pet-size ${pet.size === "Grande" ? "large" : pet.size === "Medio" ? "medium" : "small"}`}>{pet.size || "-"}</em></span>
@@ -997,7 +997,7 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
           {detail ? (
             <>
               <div className="pet-detail-hero">
-                <div className="reservation-detail-avatar">{detail.name.slice(0, 1)}</div>
+                {detail.photo_url ? <img className="reservation-detail-avatar pet-detail-photo" src={detail.photo_url} alt={detail.name} /> : <div className="reservation-detail-avatar">{detail.name.slice(0, 1)}</div>}
                 <div><h2>{detail.name}</h2><span>{detail.breed || "Raca nao informada"} - {petAge(detail)}</span></div>
                 <em className="reservation-status confirmed">{petStatus(detail, reservations)}</em>
                 <button className="pet-detail-close" onClick={() => setDetail(null)}><X size={18} /></button>
@@ -1029,6 +1029,8 @@ function AdminPetsPage({ pets, reservations, selectedPetId, setSelectedPetId, on
             <label>Sexo<select value={editForm.sex || ""} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value }))}><option value="">Nao informado</option><option>Macho</option><option>Femea</option></select></label>
             <label>Peso<input type="number" value={editForm.weight ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, weight: Number(event.target.value) }))} /></label>
             <label>Nascimento<input type="date" value={editForm.birth_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, birth_date: event.target.value }))} /></label>
+            <label className="span-2">Foto do pet (URL)<input type="url" placeholder="https://..." value={editForm.photo_url || ""} onChange={(event) => setEditForm((current) => ({ ...current, photo_url: event.target.value }))} /></label>
+            {editForm.photo_url && <div className="pet-photo-preview span-2"><img src={editForm.photo_url} alt="Previa da foto do pet" /><span>Previa da foto cadastrada</span></div>}
             <label className="span-2">Restricoes alimentares<textarea rows={3} value={editForm.food_restrictions || ""} onChange={(event) => setEditForm((current) => ({ ...current, food_restrictions: event.target.value }))} /></label>
             <label className="span-2">Medicamentos<textarea rows={3} value={editForm.medications || ""} onChange={(event) => setEditForm((current) => ({ ...current, medications: event.target.value }))} /></label>
             <label className="span-2">Anotacoes importantes<textarea rows={4} value={editForm.important_notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, important_notes: event.target.value }))} /></label>
