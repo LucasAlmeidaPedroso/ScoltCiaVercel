@@ -1055,6 +1055,7 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pet por nome, raca, tutor..." /><Search size={20} /></label>
+          <button className="admin-primary-action" type="button" onClick={openCreate}><Plus size={18} />Adicionar pet</button>
           <AdminNotificationBell reservations={reservations} fallbackCount={pets.length} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
@@ -1076,7 +1077,6 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
             <select value={sizeFilter} onChange={(event) => setSizeFilter(event.target.value)}><option value="all">Todos os portes</option><option>Pequeno</option><option>Medio</option><option>Grande</option></select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Todos os status</option><option>Ativo</option></select>
             <button onClick={() => { setQuery(""); setBreedFilter("all"); setSizeFilter("all"); setStatusFilter("all"); }}><Filter size={18} />Filtros</button>
-            <button className="new-client-button" onClick={openCreate}><Plus size={18} />Novo pet</button>
           </div>
           <div className="pets-table">
             <div className="pets-table-head"><span></span><span>Pet</span><span>Tutor</span><span>Raca</span><span>Porte</span><span>Idade</span><span>Status</span><span>Ultima atividade</span><span></span></div>
@@ -1093,7 +1093,12 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
                 <span><MoreVertical size={18} /></span>
               </button>
             ))}
-            {filteredPets.length === 0 && <p className="admin-empty">Nenhum pet encontrado com esses filtros.</p>}
+            {filteredPets.length === 0 && (
+              <div className="admin-empty pets-empty-state">
+                <p>Nenhum pet encontrado com esses filtros.</p>
+                <button className="new-client-button" type="button" onClick={openCreate}><Plus size={18} />Adicionar pet</button>
+              </div>
+            )}
           </div>
         </section>
 
