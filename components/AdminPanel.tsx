@@ -1077,6 +1077,7 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
             <select value={sizeFilter} onChange={(event) => setSizeFilter(event.target.value)}><option value="all">Todos os portes</option><option>Pequeno</option><option>Medio</option><option>Grande</option></select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Todos os status</option><option>Ativo</option></select>
             <button onClick={() => { setQuery(""); setBreedFilter("all"); setSizeFilter("all"); setStatusFilter("all"); }}><Filter size={18} />Filtros</button>
+            <button className="new-client-button" type="button" onClick={openCreate}><Plus size={18} />Novo pet</button>
           </div>
           <div className="pets-table">
             <div className="pets-table-head"><span></span><span>Pet</span><span>Tutor</span><span>Raca</span><span>Porte</span><span>Idade</span><span>Status</span><span>Ultima atividade</span><span></span></div>
@@ -1189,6 +1190,7 @@ type AdminReservationsPageProps = {
   title?: string;
   description?: string;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
+  onCreate: (payload: ReservationPayload) => Promise<Reservation | null>;
 };
 
 function addDays(date: Date, days: number) {
@@ -1588,7 +1590,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
   );
 }
 
-function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch }: AdminReservationsPageProps) {
+function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1598,6 +1600,20 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [editForm, setEditForm] = useState<ReservationPatch>({});
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState<ReservationPayload>({
+    tutor_name: "",
+    phone: "",
+    email: "",
+    pet_name: "",
+    breed: "",
+    size: "Pequeno",
+    service: initialService === "all" ? "Day Care" : initialService,
+    entry_date: localDateKey(),
+    exit_date: "",
+    expected_time: "08:00",
+    notes: ""
+  });
   const perPage = 8;
 
   const filteredReservations = useMemo(() => {
@@ -1633,6 +1649,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
 
   function openEdit(item: Reservation) {
     setEditing(item);
+    setCreating(false);
     setDetail(null);
     setEditForm({
       tutor_name: item.tutor_name,
@@ -1649,11 +1666,40 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     });
   }
 
+  function openCreate() {
+    setCreating(true);
+    setEditing(null);
+    setDetail(null);
+    setCreateForm({
+      tutor_name: "",
+      phone: "",
+      email: "",
+      pet_name: "",
+      breed: "",
+      size: "Pequeno",
+      service: initialService === "all" ? "Day Care" : initialService,
+      entry_date: localDateKey(),
+      exit_date: "",
+      expected_time: "08:00",
+      notes: ""
+    });
+  }
+
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing) return;
     await onPatch(editing.id, { ...editForm, exit_date: editForm.exit_date || null });
     setEditing(null);
+  }
+
+  async function saveCreate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const created = await onCreate({ ...createForm, exit_date: createForm.exit_date || null });
+    if (created) {
+      setSelectedId(created.id);
+      setCreating(false);
+      setDetail(created);
+    }
   }
 
   async function patchFromDetail(id: number, payload: ReservationPatch) {
@@ -1675,6 +1721,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, tutor ou pet..." /><Search size={20} /></label>
+          <button className="admin-primary-action" type="button" onClick={openCreate}><Plus size={18} />Nova reserva</button>
           <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
           <div className="admin-date"><CalendarDays size={20} />Hoje, {fullDateLabel()}</div>
         </div>
@@ -1706,6 +1753,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             <label><CalendarDays size={18} /><input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} /></label>
             <label><CalendarDays size={18} /><input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></label>
             <button onClick={() => { setQuery(""); setServiceFilter("all"); setStatusFilter("all"); setStartDate(""); setEndDate(""); }}><Filter size={18} />Filtros</button>
+            <button className="new-client-button" type="button" onClick={openCreate}><Plus size={18} />Nova reserva</button>
           </div>
 
           <div className="reservation-table">
@@ -1725,7 +1773,12 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
                 <span><MoreVertical size={18} /></span>
               </button>
             ))}
-            {pageItems.length === 0 && <p className="admin-empty">Nenhuma reserva encontrada com esses filtros.</p>}
+            {pageItems.length === 0 && (
+              <div className="admin-empty pets-empty-state">
+                <p>Nenhuma reserva encontrada com esses filtros.</p>
+                <button className="new-client-button" type="button" onClick={openCreate}><Plus size={18} />Nova reserva</button>
+              </div>
+            )}
           </div>
 
           <footer className="reservation-pagination">
@@ -1779,6 +1832,26 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             </>
           ) : <p className="admin-empty">Selecione uma reserva para ver detalhes.</p>}
         </aside>
+        </div>
+      )}
+
+      {creating && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal" onSubmit={saveCreate}>
+            <div className="reservation-detail-head"><h2>Nova reserva</h2><button type="button" onClick={() => setCreating(false)}><X size={18} /></button></div>
+            <label>Tutor<input required value={createForm.tutor_name} onChange={(event) => setCreateForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+            <label>Telefone<input required value={createForm.phone} onChange={(event) => setCreateForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+            <label>E-mail<input value={createForm.email || ""} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} /></label>
+            <label>Pet<input required value={createForm.pet_name} onChange={(event) => setCreateForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
+            <label>Raca<input value={createForm.breed || ""} onChange={(event) => setCreateForm((current) => ({ ...current, breed: event.target.value }))} /></label>
+            <label>Porte<select value={createForm.size || "Pequeno"} onChange={(event) => setCreateForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
+            <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Entrada<input required type="date" value={createForm.entry_date} onChange={(event) => setCreateForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
+            <label>Saida<input type="date" value={createForm.exit_date || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
+            <label>Horario<input type="time" value={createForm.expected_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label className="span-2">Observacoes<textarea rows={4} value={createForm.notes || ""} onChange={(event) => setCreateForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Criar reserva</button>
+          </form>
         </div>
       )}
 
@@ -2586,6 +2659,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           pendingCount={countByStatus("Aguardando aprovacao")}
           initialStatus={reservationInitialStatus}
           onPatch={updateReservationFields}
+          onCreate={createReservationFields}
         />
       )}
 
@@ -2619,6 +2693,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           title="Banho e Tosa"
           description="Gerencie atendimentos de higiene, banho, tosa e finalizacao."
           onPatch={updateReservationFields}
+          onCreate={createReservationFields}
         />
       )}
 
