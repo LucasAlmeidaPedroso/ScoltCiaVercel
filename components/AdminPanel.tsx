@@ -1249,13 +1249,14 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
   const calendarDays = [...leadingDays, ...monthDays];
   const weekStart = addDays(selected, -selected.getDay());
   const weekEnd = addDays(weekStart, 6);
-  const dayItems = reservations.filter((item) => {
+  const agendaItems = reservations.filter((item) => !["Cancelada", "Cancelado", "Reprovada", "Reprovado"].includes(item.status));
+  const dayItems = agendaItems.filter((item) => {
     if (viewMode === "Dia") return item.entry_date === selectedDate;
     if (viewMode === "Semana") return item.entry_date >= dateInputValue(weekStart) && item.entry_date <= dateInputValue(weekEnd);
     return item.entry_date.slice(0, 7) === selectedDate.slice(0, 7);
   }).sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""));
-  const nextItems = reservations
-    .filter((item) => item.entry_date >= selectedDate && !["Cancelada", "Reprovada"].includes(item.status))
+  const nextItems = agendaItems
+    .filter((item) => item.entry_date >= selectedDate)
     .sort((a, b) => `${a.entry_date} ${a.expected_time || ""}`.localeCompare(`${b.entry_date} ${b.expected_time || ""}`))
     .slice(0, 5);
   const hours = Array.from({ length: 13 }, (_, index) => index + 7);
@@ -1356,7 +1357,7 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
             <div className="agenda-calendar-grid">
               {calendarDays.map((day) => {
                 const value = dateInputValue(day);
-                const hasItems = reservations.some((item) => item.entry_date === value);
+                const hasItems = agendaItems.some((item) => item.entry_date === value);
                 return <button key={value} className={`${value === selectedDate ? "active" : ""} ${day.getMonth() !== selected.getMonth() ? "muted" : ""} ${hasItems ? "has-items" : ""}`} onClick={() => setSelectedDate(value)}>{day.getDate()}</button>;
               })}
             </div>
