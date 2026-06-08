@@ -283,6 +283,10 @@ function statusClass(status: string) {
   return "pending";
 }
 
+function isBillableReservation(item: Reservation) {
+  return !["Cancelada", "Cancelado", "Reprovada", "Reprovado"].includes(item.status);
+}
+
 function serviceIconClass(service: string) {
   const kind = serviceKind(service);
   if (kind === "Hospedagem") return "hosting";
@@ -1633,7 +1637,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   const totalPages = Math.max(1, Math.ceil(filteredReservations.length / perPage));
   const pageItems = filteredReservations.slice((page - 1) * perPage, page * perPage);
   const selected = selectedId ? reservations.find((item) => item.id === selectedId) : undefined;
-  const totalRevenue = reservations.reduce((sum, item) => sum + reservationValue(item), 0);
+  const totalRevenue = reservations.filter(isBillableReservation).reduce((sum, item) => sum + reservationValue(item), 0);
   const confirmed = reservations.filter((item) => item.status === "Confirmada").length;
   const canceled = reservations.filter((item) => ["Cancelada", "Reprovada"].includes(item.status)).length;
 
