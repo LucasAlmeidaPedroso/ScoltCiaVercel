@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload } from "@/lib/types";
 
@@ -2162,7 +2163,25 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
+  const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
+  const loadingTimerRef = useRef<number>();
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
+
+  function showAdminLoading(label: string, duration = 650) {
+    window.clearTimeout(loadingTimerRef.current);
+    setAdminLoadingLabel(label);
+    loadingTimerRef.current = window.setTimeout(() => setAdminLoadingLabel(""), duration);
+  }
+
+  function hideAdminLoading() {
+    window.clearTimeout(loadingTimerRef.current);
+    setAdminLoadingLabel("");
+  }
+
+  function goAdminPage(page: AdminPageKey, label: string) {
+    showAdminLoading(label);
+    setAdminPage(page);
+  }
 
   function adminHeaders() {
     return {
@@ -2177,25 +2196,25 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   function openReservations(status = "all") {
-    setAdminPage("reservations");
+    goAdminPage("reservations", "Carregando reservas...");
     setReservationInitialStatus(status);
     if (status !== "all") setSelectedId(items.find((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente"))?.id ?? 0);
   }
 
   function openUsers() {
-    setAdminPage("users");
+    goAdminPage("users", "Carregando equipe...");
   }
 
   function openClients() {
-    setAdminPage("clients");
+    goAdminPage("clients", "Carregando tutores...");
   }
 
   function openPets() {
-    setAdminPage("pets");
+    goAdminPage("pets", "Carregando pets...");
   }
 
   function openModule(page: AdminModulePageKey) {
-    setAdminPage(page);
+    goAdminPage(page, "Carregando modulo...");
   }
 
   async function loadAdminRecords(headers = adminHeaders()) {
@@ -2274,6 +2293,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   useEffect(() => {
+    return () => window.clearTimeout(loadingTimerRef.current);
+  }, []);
+
+  useEffect(() => {
     const supabase = getSupabaseBrowser();
     if (!supabase) return;
 
@@ -2291,25 +2314,30 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   async function login(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoginMessage("");
+    setAdminLoadingLabel("Entrando no painel...");
 
-    const response = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password })
-    });
+    try {
+      const response = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
 
-    setUnlocked(response.ok);
+      setUnlocked(response.ok);
 
-    if (response.ok) {
-      const loginData = await response.json();
-      if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
-      setAccessToken("");
-      const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
-      if (usersResponse.ok) setUsers(await usersResponse.json());
-      await loadTutors();
-      await loadAdminRecords();
-    } else {
-      setLoginMessage("Login nao autorizado. Confira seu e-mail e senha.");
+      if (response.ok) {
+        const loginData = await response.json();
+        if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
+        setAccessToken("");
+        const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
+        if (usersResponse.ok) setUsers(await usersResponse.json());
+        await loadTutors();
+        await loadAdminRecords();
+      } else {
+        setLoginMessage("Login nao autorizado. Confira seu e-mail e senha.");
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
@@ -2340,226 +2368,284 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function updateReservationFields(id: number, payload: ReservationPatch) {
-    const response = await fetch("/api/admin/reservations", {
-      method: "PATCH",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id, ...payload })
-    });
+    setAdminLoadingLabel("Salvando reserva...");
+    try {
+      const response = await fetch("/api/admin/reservations", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id, ...payload })
+      });
 
-    if (response.ok) {
-      const updated = await response.json();
-      setItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      if (response.ok) {
+        const updated = await response.json();
+        setItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function createReservationFields(payload: ReservationPayload) {
-    const response = await fetch("/api/admin/reservations", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify(payload)
-    });
+    setAdminLoadingLabel("Criando reserva...");
+    try {
+      const response = await fetch("/api/admin/reservations", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-      const created = await response.json();
-      setItems((current) => [created, ...current]);
-      setSelectedId(created.id);
-      return created as Reservation;
+      if (response.ok) {
+        const created = await response.json();
+        setItems((current) => [created, ...current]);
+        setSelectedId(created.id);
+        return created as Reservation;
+      }
+      return null;
+    } finally {
+      hideAdminLoading();
     }
-    return null;
   }
 
   async function updatePetFields(id: number, payload: PetPatch) {
-    const response = await fetch("/api/admin/pets", {
-      method: "PATCH",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id, ...payload })
-    });
+    setAdminLoadingLabel("Salvando pet...");
+    try {
+      const response = await fetch("/api/admin/pets", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id, ...payload })
+      });
 
-    if (response.ok) {
-      const updated = await response.json();
-      setPetItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      if (response.ok) {
+        const updated = await response.json();
+        setPetItems((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function createPetFields(payload: PetPayload) {
-    const response = await fetch("/api/admin/pets", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify(payload)
-    });
+    setAdminLoadingLabel("Cadastrando pet...");
+    try {
+      const response = await fetch("/api/admin/pets", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-      const created = await response.json() as PetOption;
-      setPetItems((current) => [created, ...current]);
-      setSelectedPetId(created.id);
-      return created;
+      if (response.ok) {
+        const created = await response.json() as PetOption;
+        setPetItems((current) => [created, ...current]);
+        setSelectedPetId(created.id);
+        return created;
+      }
+      return null;
+    } finally {
+      hideAdminLoading();
     }
-    return null;
   }
 
   async function createTutorRecord(payload: TutorPayload) {
-    const response = await fetch("/api/admin/tutors", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify(payload)
-    });
+    setAdminLoadingLabel("Cadastrando tutor...");
+    try {
+      const response = await fetch("/api/admin/tutors", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-      const created = await response.json();
-      const tutor = {
-        key: `tutor-${created.id}`,
-        id: created.id,
-        name: created.full_name,
-        phone: created.phone || "",
-        email: created.email || "",
-        address: created.address || "",
-        created_at: created.created_at,
-        pets: [],
-        reservations: []
-      };
-      setExtraTutors((current) => [tutor, ...current]);
-      setSelectedTutorKey(`tutor-${created.id}`);
-      return tutor;
+      if (response.ok) {
+        const created = await response.json();
+        const tutor = {
+          key: `tutor-${created.id}`,
+          id: created.id,
+          name: created.full_name,
+          phone: created.phone || "",
+          email: created.email || "",
+          address: created.address || "",
+          created_at: created.created_at,
+          pets: [],
+          reservations: []
+        };
+        setExtraTutors((current) => [tutor, ...current]);
+        setSelectedTutorKey(`tutor-${created.id}`);
+        return tutor;
+      }
+      return null;
+    } finally {
+      hideAdminLoading();
     }
-    return null;
   }
 
   async function updateTutorRecord(id: number, payload: TutorPatch) {
-    const response = await fetch("/api/admin/tutors", {
-      method: "PATCH",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id, ...payload })
-    });
+    setAdminLoadingLabel("Salvando tutor...");
+    try {
+      const response = await fetch("/api/admin/tutors", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id, ...payload })
+      });
 
-    if (response.ok) {
-      const updated = await response.json();
-      setExtraTutors((current) => current.map((tutor) => tutor.id === id ? {
-        ...tutor,
-        name: updated.full_name || tutor.name,
-        phone: updated.phone || tutor.phone,
-        email: updated.email || tutor.email,
-        address: updated.address || tutor.address
-      } : tutor));
-      setPetItems((current) => current.map((pet) => pet.tutor_id === id ? {
-        ...pet,
-        tutor_name: updated.full_name || pet.tutor_name,
-        tutor_phone: updated.phone || pet.tutor_phone,
-        tutor_email: updated.email || pet.tutor_email,
-        tutor_address: updated.address || pet.tutor_address
-      } : pet));
+      if (response.ok) {
+        const updated = await response.json();
+        setExtraTutors((current) => current.map((tutor) => tutor.id === id ? {
+          ...tutor,
+          name: updated.full_name || tutor.name,
+          phone: updated.phone || tutor.phone,
+          email: updated.email || tutor.email,
+          address: updated.address || tutor.address
+        } : tutor));
+        setPetItems((current) => current.map((pet) => pet.tutor_id === id ? {
+          ...pet,
+          tutor_name: updated.full_name || pet.tutor_name,
+          tutor_phone: updated.phone || pet.tutor_phone,
+          tutor_email: updated.email || pet.tutor_email,
+          tutor_address: updated.address || pet.tutor_address
+        } : pet));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function createAdminRecordItem(payload: AdminRecordPayload) {
-    const response = await fetch("/api/admin/records", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify(payload)
-    });
+    setAdminLoadingLabel("Criando registro...");
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(payload)
+      });
 
-    if (response.ok) {
-      const created = await response.json();
-      setAdminRecords((current) => [created, ...current]);
+      if (response.ok) {
+        const created = await response.json();
+        setAdminRecords((current) => [created, ...current]);
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function updateAdminRecordItem(id: number, payload: Partial<AdminRecordPayload>) {
-    const response = await fetch("/api/admin/records", {
-      method: "PATCH",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id, ...payload })
-    });
+    setAdminLoadingLabel("Salvando registro...");
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id, ...payload })
+      });
 
-    if (response.ok) {
-      const updated = await response.json();
-      setAdminRecords((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      if (response.ok) {
+        const updated = await response.json();
+        setAdminRecords((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function deleteAdminRecordItem(id: number) {
-    const response = await fetch(`/api/admin/records?id=${id}`, {
-      method: "DELETE",
-      headers: adminHeaders()
-    });
+    setAdminLoadingLabel("Removendo registro...");
+    try {
+      const response = await fetch(`/api/admin/records?id=${id}`, {
+        method: "DELETE",
+        headers: adminHeaders()
+      });
 
-    if (response.ok) {
-      setAdminRecords((current) => current.filter((item) => item.id !== id));
+      if (response.ok) {
+        setAdminRecords((current) => current.filter((item) => item.id !== id));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setUserMessage("");
+    setAdminLoadingLabel("Cadastrando usuario...");
 
-    const response = await fetch("/api/admin/users", {
-      method: "POST",
-      headers: adminHeaders(),
-      body: JSON.stringify(userForm)
-    });
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(userForm)
+      });
 
-    if (response.ok) {
-      const created = await response.json();
-      setUsers((current) => [created, ...current]);
-      setUserForm({ name: "", email: "", password: "", role: "equipe" });
-      setUserMessage("Usuario cadastrado.");
-    } else {
-      setUserMessage("Nao foi possivel cadastrar o usuario.");
+      if (response.ok) {
+        const created = await response.json();
+        setUsers((current) => [created, ...current]);
+        setUserForm({ name: "", email: "", password: "", role: "equipe" });
+        setUserMessage("Usuario cadastrado.");
+      } else {
+        setUserMessage("Nao foi possivel cadastrar o usuario.");
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   async function updateAdminUser(id: number, payload: Partial<Pick<AppUser, "role" | "is_active">>) {
-    const response = await fetch("/api/admin/users", {
-      method: "PATCH",
-      headers: adminHeaders(),
-      body: JSON.stringify({ id, ...payload })
-    });
+    setAdminLoadingLabel("Atualizando usuario...");
+    try {
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ id, ...payload })
+      });
 
-    if (response.ok) {
-      const updated = await response.json();
-      setUsers((current) => current.map((user) => user.id === id ? updated : user));
+      if (response.ok) {
+        const updated = await response.json();
+        setUsers((current) => current.map((user) => user.id === id ? updated : user));
+      }
+    } finally {
+      hideAdminLoading();
     }
   }
 
   if (!unlocked) {
     return (
-      <div className="login-showcase">
-        <section className="login-visual">
-          <div className="login-logo">
-            <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={74} height={74} />
-            <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
-          </div>
-          <div className="login-copy">
-            <h1>Cuidado, carinho e diversao</h1>
-            <p>Um lugar seguro e cheio de amor para o seu melhor amigo.</p>
-          </div>
-          <Image className="login-dogs" src="/img/hero-dachshund-akita.png" alt="Cachorros na creche" width={560} height={420} priority />
-          <div className="login-benefits">
-            <div><span><ShieldCheck size={28} /></span><strong>Ambiente seguro</strong><p>Rotina acompanhada</p></div>
-            <div><span><Heart size={28} /></span><strong>Muito carinho</strong><p>Equipe apaixonada por caes</p></div>
-            <div><span><Gamepad2 size={28} /></span><strong>Diversao garantida</strong><p>Atividades diarias</p></div>
-          </div>
-        </section>
+      <>
+        {adminLoadingLabel && <LoadingOverlay label={adminLoadingLabel} />}
+        <div className="login-showcase">
+          <section className="login-visual">
+            <div className="login-logo">
+              <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={74} height={74} />
+              <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
+            </div>
+            <div className="login-copy">
+              <h1>Cuidado, carinho e diversao</h1>
+              <p>Um lugar seguro e cheio de amor para o seu melhor amigo.</p>
+            </div>
+            <Image className="login-dogs" src="/img/hero-dachshund-akita.png" alt="Cachorros na creche" width={560} height={420} priority />
+            <div className="login-benefits">
+              <div><span><ShieldCheck size={28} /></span><strong>Ambiente seguro</strong><p>Rotina acompanhada</p></div>
+              <div><span><Heart size={28} /></span><strong>Muito carinho</strong><p>Equipe apaixonada por caes</p></div>
+              <div><span><Gamepad2 size={28} /></span><strong>Diversao garantida</strong><p>Atividades diarias</p></div>
+            </div>
+          </section>
 
-        <form className="login-form-panel" onSubmit={login}>
-          <h2>Bem-vindo de volta!</h2>
-          <p>Faca login para acessar o sistema de gestao.</p>
-          <label>E-mail
-            <div className="input-icon"><Mail size={18} /><input type="email" placeholder="seu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
-          </label>
-          <label>Senha
-            <div className="input-icon"><Lock size={18} /><input type={showPassword ? "text" : "password"} placeholder="Digite sua senha" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
-          </label>
-          <div className="login-row">
-            <label className="remember-row"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />Lembrar de mim</label>
-            <a href="mailto:lucasalmeidapedroso@gmail.com">Esqueci minha senha</a>
-          </div>
-          <button className="login-submit" type="submit"><Lock size={18} />Entrar</button>
-          <div className="login-divider"><span></span>ou<span></span></div>
-          <button className="google-button" type="button" onClick={googleLogin} disabled={!googleLoginEnabled}><strong>G</strong>Entrar com Google</button>
-          {loginMessage && <strong className="form-warning">{loginMessage}</strong>}
-          <p className="login-help">Ainda nao tem uma conta? <a href="mailto:lucasalmeidapedroso@gmail.com">Fale com o administrador</a></p>
-        </form>
-      </div>
+          <form className="login-form-panel" onSubmit={login}>
+            <h2>Bem-vindo de volta!</h2>
+            <p>Faca login para acessar o sistema de gestao.</p>
+            <label>E-mail
+              <div className="input-icon"><Mail size={18} /><input type="email" placeholder="seu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+            </label>
+            <label>Senha
+              <div className="input-icon"><Lock size={18} /><input type={showPassword ? "text" : "password"} placeholder="Digite sua senha" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
+            </label>
+            <div className="login-row">
+              <label className="remember-row"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />Lembrar de mim</label>
+              <a href="mailto:lucasalmeidapedroso@gmail.com">Esqueci minha senha</a>
+            </div>
+            <button className="login-submit" type="submit"><Lock size={18} />Entrar</button>
+            <div className="login-divider"><span></span>ou<span></span></div>
+            <button className="google-button" type="button" onClick={googleLogin} disabled={!googleLoginEnabled}><strong>G</strong>Entrar com Google</button>
+            {loginMessage && <strong className="form-warning">{loginMessage}</strong>}
+            <p className="login-help">Ainda nao tem uma conta? <a href="mailto:lucasalmeidapedroso@gmail.com">Fale com o administrador</a></p>
+          </form>
+        </div>
+      </>
     );
   }
 
@@ -2567,13 +2653,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   return (
     <div className="admin-dashboard">
+      {adminLoadingLabel && <LoadingOverlay label={adminLoadingLabel} />}
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={52} height={52} />
           <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
         </div>
         <nav className="admin-nav">
-          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => setAdminPage("dashboard")}><LayoutDashboard size={18} />Dashboard</a>
+          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando dashboard...")}><LayoutDashboard size={18} />Dashboard</a>
           <div className="admin-nav-section">
             <span>Gestao</span>
             <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
@@ -2585,11 +2672,11 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           </div>
           <div className="admin-nav-section">
             <span>Operacao</span>
-            <a className={adminPage === "agenda" ? "active" : ""} onClick={() => setAdminPage("agenda")}><CalendarDays size={18} />Agenda</a>
-            <a className={adminPage === "checkin" ? "active" : ""} onClick={() => setAdminPage("checkin")}><CheckCircle2 size={18} />Check-in / Check-out</a>
+            <a className={adminPage === "agenda" ? "active" : ""} onClick={() => goAdminPage("agenda", "Carregando agenda...")}><CalendarDays size={18} />Agenda</a>
+            <a className={adminPage === "checkin" ? "active" : ""} onClick={() => goAdminPage("checkin", "Carregando check-in...")}><CheckCircle2 size={18} />Check-in / Check-out</a>
             <a className={adminPage === "activities" ? "active" : ""} onClick={() => openModule("activities")}><Activity size={18} />Atividades</a>
             <a className={adminPage === "feeding" ? "active" : ""} onClick={() => openModule("feeding")}><Utensils size={18} />Alimentacao</a>
-            <a className={adminPage === "grooming" ? "active" : ""} onClick={() => setAdminPage("grooming")}><Scissors size={18} />Banho e Tosa</a>
+            <a className={adminPage === "grooming" ? "active" : ""} onClick={() => goAdminPage("grooming", "Carregando banho e tosa...")}><Scissors size={18} />Banho e Tosa</a>
           </div>
           <div className="admin-nav-section">
             <span>Equipe</span>

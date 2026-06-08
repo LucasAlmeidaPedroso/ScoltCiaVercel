@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Nunito_Sans } from "next/font/google";
 import { Camera, ChevronRight, ClipboardCheck, Heart, Home, Hotel, MapPin, MessageCircle, PawPrint, Scissors, ShieldCheck } from "lucide-react";
 import { SiteNav } from "@/components/SiteNav";
+import { RouteLoadingIndicator } from "@/components/RouteLoadingIndicator";
 import "./globals.css";
 
 const roundedFont = Nunito_Sans({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteNav />
           </nav>
         </header>
+        <RouteLoadingIndicator />
         {children}
         <footer className="site-footer">
           <div className="footer-shell">
