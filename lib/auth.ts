@@ -162,6 +162,79 @@ export async function updateUser(id: number, payload: Partial<Pick<AppUser, "nam
   return data;
 }
 
+const fallbackTutor = {
+  id: 2,
+  name: "Mariana Alves",
+  email: "mariana@email.com",
+  role: "tutor" as const,
+  is_active: true,
+  tutor_id: null as number | null,
+  created_at: new Date().toISOString()
+};
+
+export type TutorAccount = AppUser & { tutor_id: number | null };
+
+export async function verifyTutorCredentials(email: string, password: string): Promise<TutorAccount | null> {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!hasSupabaseEnv()) {
+    const fallbackPassword = process.env.TUTOR_PASSWORD;
+    if (!fallbackPassword) return fallbackTutor; // modo demo: libera o tutor de exemplo
+    return normalizedEmail === fallbackTutor.email && password === fallbackPassword ? fallbackTutor : null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("*")
+    .eq("email", normalizedEmail)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !data || data.role !== "tutor") return null;
+
+  const attemptedHash = hashPassword(password, data.password_salt);
+  if (!safeEqual(attemptedHash, data.password_hash)) return null;
+
+  return {
+    id: data.id,
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    is_active: data.is_active,
+    tutor_id: data.tutor_id ?? null,
+    created_at: data.created_at
+  };
+}
+
+export async function getTutorByEmail(email: string): Promise<TutorAccount | null> {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!hasSupabaseEnv()) {
+    return normalizedEmail === fallbackTutor.email ? fallbackTutor : null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id,name,email,role,is_active,tutor_id,created_at")
+    .eq("email", normalizedEmail)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !data || data.role !== "tutor") return null;
+  return { ...data, tutor_id: data.tutor_id ?? null };
+}
+
+export async function requireTutor(request: Request) {
+  const { readSessionToken } = await import("./tutor-session");
+  const cookie = request.headers.get("cookie") || "";
+  const match = cookie.match(/scoltcia_tutor=([^;]+)/);
+  const email = readSessionToken(match ? decodeURIComponent(match[1]) : null);
+  if (!email) return null;
+  return getTutorByEmail(email);
+}
+
 export async function requireAdmin(request: Request) {
   const authorization = request.headers.get("authorization") || "";
   const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";

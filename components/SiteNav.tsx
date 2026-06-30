@@ -9,7 +9,7 @@ const links = [
   { href: "/servicos", label: "Servicos" },
   { href: "/galeria", label: "Galeria" },
   { href: "/contato", label: "Contato" },
-  { href: "/reserva", label: "Area do tutor" }
+  { href: "/area-do-tutor", label: "Area do tutor" }
 ];
 
 export function SiteNav() {

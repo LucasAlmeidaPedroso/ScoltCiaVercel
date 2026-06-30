@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <p>Day Care, hospedagem e cuidado organizado para cachorros felizes. Aqui seu pet e tratado como familia!</p>
                 <div className="footer-socials">
                   <a href="https://wa.me/5511984130296" aria-label="WhatsApp"><MessageCircle size={22} /></a>
-                  <a href="https://www.instagram.com/" aria-label="Instagram"><Camera size={22} /></a>
+                  <a href="https://www.instagram.com/explore/search/keyword/?q=scolt%26cia" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><Camera size={22} /></a>
                   <a href={mapUrl} target="_blank" rel="noopener noreferrer" aria-label="Mapa"><MapPin size={22} /></a>
                 </div>
               </section>
@@ -62,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/servicos"><ChevronRight size={18} />Servicos</Link>
                 <Link href="/galeria"><ChevronRight size={18} />Galeria</Link>
                 <Link href="/contato"><ChevronRight size={18} />Contato</Link>
-                <Link href="/reserva"><ChevronRight size={18} />Area do tutor</Link>
+                <Link href="/area-do-tutor"><ChevronRight size={18} />Area do tutor</Link>
               </section>
 
               <section className="footer-column footer-services-list">

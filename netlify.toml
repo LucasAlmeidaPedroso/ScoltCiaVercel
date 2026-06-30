@@ -1,0 +1,16 @@
+# Configuracao de deploy na Netlify (alternativa a Vercel).
+# O plugin oficial do Next.js e instalado automaticamente pela Netlify
+# e habilita as rotas de API, SSR e renderizacao dinamica deste projeto.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Lembrete: configure as variaveis no painel
+# Site settings > Environment variables:
+#   NEXT_PUBLIC_SUPABASE_URL
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   SUPABASE_SERVICE_ROLE_KEY
+#   TUTOR_SESSION_SECRET  (uma string aleatoria longa)
