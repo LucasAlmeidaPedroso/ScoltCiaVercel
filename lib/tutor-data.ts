@@ -130,6 +130,7 @@ export async function getTutorData(): Promise<TutorData> {
 
   if (!hasSupabaseEnv()) return demoBundle(true);
 
+  try {
   const account = await resolveAccount();
   if (!account || !account.tutor_id) return demoBundle(true);
 
@@ -326,4 +327,8 @@ export async function getTutorData(): Promise<TutorData> {
     nextReservation: agenda[0] ?? demo.nextReservation, dailyReport, achievements, lifeTimeline,
     indicators, weightHistory, aiInsights, dashboardAvisos
   };
+  } catch (error) {
+    console.error("getTutorData: Supabase indisponivel, usando dados demo.", error);
+    return demoBundle(true);
+  }
 }

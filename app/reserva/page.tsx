@@ -1,6 +1,8 @@
 import { ReservationForm } from "@/components/ReservationForm";
 import { getDaycareSettings, listPets, listReservations } from "@/lib/data";
 
+export const dynamic = "force-dynamic";
+
 export default async function ReservaPage() {
   const [pets, reservations, settings] = await Promise.all([listPets(), listReservations(), getDaycareSettings()]);
 

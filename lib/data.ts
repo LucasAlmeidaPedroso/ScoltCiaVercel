@@ -5,27 +5,37 @@ import type { AdminRecord, AdminRecordPayload, DaycareSettings, PetOption, PetPa
 export async function listPets(): Promise<PetOption[]> {
   if (!hasSupabaseEnv()) return demoPets;
 
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("pet_options")
-    .select("*")
-    .order("name");
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("pet_options")
+      .select("*")
+      .order("name");
 
-  if (error) throw error;
-  return data ?? [];
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    console.error("listPets: Supabase indisponivel, usando dados demo.", error);
+    return demoPets;
+  }
 }
 
 export async function listReservations(): Promise<Reservation[]> {
   if (!hasSupabaseEnv()) return demoReservations;
 
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("*")
-    .order("entry_date", { ascending: true });
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("reservations")
+      .select("*")
+      .order("entry_date", { ascending: true });
 
-  if (error) throw error;
-  return data ?? [];
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    console.error("listReservations: Supabase indisponivel, usando dados demo.", error);
+    return demoReservations;
+  }
 }
 
 export async function createReservation(payload: ReservationPayload, status = "Aguardando aprovacao") {
@@ -300,15 +310,20 @@ export async function deleteAdminRecord(id: number) {
 export async function getDaycareSettings(): Promise<DaycareSettings> {
   if (!hasSupabaseEnv()) return { max_capacity: 20 };
 
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("daycare_settings")
-    .select("max_capacity")
-    .eq("id", 1)
-    .single();
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("daycare_settings")
+      .select("max_capacity")
+      .eq("id", 1)
+      .single();
 
-  if (error) throw error;
-  return data ?? { max_capacity: 20 };
+    if (error) throw error;
+    return data ?? { max_capacity: 20 };
+  } catch (error) {
+    console.error("getDaycareSettings: Supabase indisponivel, usando padrao.", error);
+    return { max_capacity: 20 };
+  }
 }
 
 export async function updateDaycareSettings(maxCapacity: number): Promise<DaycareSettings> {
