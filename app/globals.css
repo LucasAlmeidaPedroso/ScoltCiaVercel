@@ -898,7 +898,7 @@ textarea { resize: vertical; }
 }
 .admin-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
   margin-bottom: 28px;
 }
@@ -921,6 +921,10 @@ textarea { resize: vertical; }
   text-align: left;
   font: inherit;
   cursor: pointer;
+  align-items: start;
+}
+.admin-kpi > div {
+  min-width: 0;
 }
 .admin-kpi:hover {
   transform: translateY(-2px);
@@ -939,17 +943,21 @@ textarea { resize: vertical; }
   display: block;
   color: #071d3a;
   font-weight: 900;
+  line-height: 1.2;
 }
 .admin-kpi strong {
   display: block;
   margin: 5px 0 8px;
   color: #071d3a;
-  font-size: 30px;
-  line-height: 1;
+  font-size: clamp(26px, 2.1vw, 30px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
 }
 .admin-kpi em {
+  display: block;
   color: #009f77;
   font-size: 12px;
+  line-height: 1.45;
   font-style: normal;
   font-weight: 800;
 }
