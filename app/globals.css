@@ -510,6 +510,14 @@ textarea { resize: vertical; }
   background: #f8fafc;
   padding: 18px;
 }
+body:has(.admin-app-route) .site-header,
+body:has(.admin-app-route) .site-footer {
+  display: none;
+}
+.admin-app-route {
+  min-height: 100vh;
+  background: #f3f7fb;
+}
 .admin-dashboard {
   width: min(1380px, 100%);
   min-height: 860px;
@@ -5483,6 +5491,19 @@ textarea { resize: vertical; }
 }
 
 @media (max-width: 980px) {
+  .admin-page {
+    min-height: 100vh;
+    padding: 0;
+    background: #f3f7fb;
+  }
+  .admin-dashboard {
+    width: 100%;
+    min-height: 100vh;
+    border: 0;
+    box-shadow: none;
+    background: #f3f7fb;
+    overflow-x: hidden;
+  }
   .nav-shell { height: auto; padding: 12px 0; align-items: flex-start; }
   .nav-links { flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
   .hero-grid, .split, .footer-grid { grid-template-columns: 1fr; }
@@ -5497,24 +5518,240 @@ textarea { resize: vertical; }
     min-height: 720px;
   }
   .admin-sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    padding: 14px 14px 10px;
+    border-right: 0;
+    border-bottom: 1px solid #e6edf5;
+    background: rgba(255, 255, 255, .96);
+    box-shadow: 0 12px 30px rgba(7, 29, 58, .08);
+    backdrop-filter: blur(14px);
+  }
+  .admin-brand {
+    margin-bottom: 12px;
+  }
+  .admin-brand img {
+    width: 48px;
+    height: 48px;
+    border-radius: 13px;
+  }
+  .admin-brand strong {
+    font-size: 22px;
+  }
+  .admin-nav {
+    display: flex;
+    gap: 8px;
+    width: calc(100% + 28px);
+    max-width: calc(100% + 28px);
+    margin: 0 -14px;
+    padding: 0 14px 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+  .admin-nav-section {
+    display: flex;
+    gap: 8px;
+    flex: 0 0 auto;
+  }
+  .admin-nav-section > span {
+    display: none;
+  }
+  .admin-nav a {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 14px;
+    border: 1px solid #edf1f7;
+    border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 8px 18px rgba(7, 29, 58, .05);
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
+  .admin-nav a.active {
+    color: #fff;
+    border-color: transparent;
+    background: linear-gradient(135deg, #23c7bd, #8ce2d7);
+  }
+  .admin-sidebar .admin-profile {
+    position: absolute;
+    top: 15px;
+    right: 14px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 14px;
+  }
+  .admin-sidebar .admin-profile > div:nth-child(2),
+  .admin-sidebar .admin-profile button {
+    display: none;
+  }
+  .admin-profile-photo {
+    width: 34px;
+    height: 34px;
   }
   .admin-dashboard-page {
-    padding: 28px 20px 86px;
+    min-width: 0;
+    padding: 22px 14px 86px;
   }
   .admin-dashboard-topbar,
   .admin-topbar-tools {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+  }
+  .admin-dashboard-topbar h1,
+  .admin-reservations-head h1 {
+    font-size: 24px;
+  }
+  .admin-dashboard-topbar p,
+  .admin-reservations-head p {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .admin-topbar-tools {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: stretch;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
   }
   .admin-search {
-    width: min(100%, 320px);
+    width: 100%;
+    min-width: 0;
   }
-  .admin-kpi-grid,
+  .dashboard-edit-button {
+    width: 46px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+  }
+  .dashboard-edit-button svg {
+    margin: 0;
+  }
+  .admin-date {
+    grid-column: 1 / -1;
+    justify-content: center;
+    height: auto;
+    min-height: 44px;
+    padding: 10px 14px;
+    text-align: center;
+  }
+  .admin-kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
   .admin-dashboard-layout,
   .admin-donut-wrap,
   .admin-indicators > div,
   .agenda-layout {
     grid-template-columns: 1fr;
+  }
+  .admin-kpi {
+    min-height: 154px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px 14px;
+  }
+  .admin-kpi > span {
+    width: 48px;
+    height: 48px;
+  }
+  .admin-kpi small {
+    font-size: 12px;
+  }
+  .admin-kpi strong {
+    font-size: clamp(24px, 8vw, 30px);
+  }
+  .admin-main,
+  .admin-reservations-page {
+    min-width: 0;
+    padding: 22px 14px 86px;
+    background: #f3f7fb;
+  }
+  .admin-reservations-head {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .admin-reservations-head > div:last-child {
+    width: 100%;
+  }
+  .reservation-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .reservation-metrics article {
+    min-height: 142px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 16px 14px;
+  }
+  .reservation-metrics article > span {
+    width: 48px;
+    height: 48px;
+  }
+  .reservation-filterbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 14px;
+  }
+  .reservation-filterbar label,
+  .reservation-filterbar select,
+  .reservation-filterbar button {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+  }
+  .reservation-table {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+  }
+  .reservation-table-head {
+    display: none;
+  }
+  .reservation-table-row {
+    width: 100%;
+    margin: 0;
+    grid-template-columns: 1fr auto;
+    gap: 10px 12px;
+    align-items: start;
+    padding: 14px;
+    border: 1px solid #edf1f7;
+    border-radius: 16px;
+    box-shadow: 0 8px 18px rgba(7, 29, 58, .04);
+  }
+  .reservation-table-row > span:first-child,
+  .reservation-table-row > span:nth-child(2),
+  .reservation-table-row > span:nth-child(5),
+  .reservation-table-row > span:nth-child(8),
+  .reservation-table-row > span:last-child {
+    display: none;
+  }
+  .reservation-table-row > span:nth-child(3),
+  .reservation-table-row > span:nth-child(4),
+  .reservation-table-row > span:nth-child(6) {
+    grid-column: 1;
+  }
+  .reservation-table-row > span:nth-child(7) {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
   }
   .agenda-toolbar {
     grid-template-columns: repeat(3, auto);

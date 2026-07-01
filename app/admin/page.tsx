@@ -7,7 +7,7 @@ export default async function AdminPage() {
   const [pets, reservations, settings] = await Promise.all([listPets(), listReservations(), getDaycareSettings()]);
 
   return (
-    <main>
+    <main className="admin-app-route">
       <section className="admin-page">
         <AdminPanel pets={pets} reservations={reservations} settings={settings} />
       </section>
