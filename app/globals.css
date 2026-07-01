@@ -615,6 +615,45 @@ textarea { resize: vertical; }
   border: 1px solid var(--line);
   border-radius: 8px;
 }
+.reservation-pet-mode {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.reservation-pet-mode button {
+  min-height: 46px;
+  border: 1px solid #dfe7f2;
+  border-radius: 14px;
+  background: #fff;
+  color: #173054;
+  font-weight: 900;
+  justify-content: center;
+}
+.reservation-pet-mode button.active {
+  border-color: #1ec7b6;
+  background: #e9fbf7;
+  color: #008f80;
+  box-shadow: 0 12px 24px rgba(30, 199, 182, .18);
+}
+.reservation-autofill-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  padding: 14px;
+  border: 1px solid #d9f5ee;
+  border-radius: 14px;
+  background: #f4fffc;
+  color: #173054;
+}
+.reservation-autofill-card strong {
+  grid-column: 1 / -1;
+  font-size: 18px;
+}
+.reservation-autofill-card span {
+  color: #53657d;
+  font-size: 14px;
+  font-weight: 800;
+}
 .row-actions {
   display: flex;
   gap: 8px;
@@ -6082,7 +6121,7 @@ body:has(.admin-app-route) .site-footer {
     font-size: 11px;
   }
   .brand span { display: none; }
-  .service-grid, .form-grid, .compact-form, .user-form-grid, .permission-grid, .permission-grid.compact, .user-admin-head { grid-template-columns: 1fr; }
+  .service-grid, .form-grid, .compact-form, .user-form-grid, .permission-grid, .permission-grid.compact, .user-admin-head, .reservation-pet-mode, .reservation-autofill-card { grid-template-columns: 1fr; }
   .permission-item { grid-template-columns: 1fr; }
   .permission-item select { width: 100%; }
   .span-2 { grid-column: auto; }

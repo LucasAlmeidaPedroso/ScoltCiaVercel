@@ -1299,6 +1299,7 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
 
 type AdminReservationsPageProps = {
   reservations: Reservation[];
+  pets: PetOption[];
   selectedId: number;
   setSelectedId: (id: number) => void;
   pendingCount: number;
@@ -1711,7 +1712,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
   );
 }
 
-function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", businessUnit, title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
+function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", businessUnit, title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1722,6 +1723,8 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [editForm, setEditForm] = useState<ReservationPatch>({});
   const [creating, setCreating] = useState(false);
+  const [createPetMode, setCreatePetMode] = useState<"registered" | "unregistered">("registered");
+  const [selectedCreatePetId, setSelectedCreatePetId] = useState("");
   const [createForm, setCreateForm] = useState<ReservationPayload>({
     tutor_name: "",
     phone: "",
@@ -1755,6 +1758,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
   const totalRevenue = reservations.filter(isBillableReservation).reduce((sum, item) => sum + reservationValue(item), 0);
   const confirmed = reservations.filter((item) => item.status === "Confirmada").length;
   const canceled = reservations.filter((item) => ["Cancelada", "Reprovada"].includes(item.status)).length;
+  const sortedPets = useMemo(() => [...pets].sort((a, b) => a.name.localeCompare(b.name)), [pets]);
 
   useEffect(() => {
     setPage(1);
@@ -1791,7 +1795,10 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     setCreating(true);
     setEditing(null);
     setDetail(null);
+    setCreatePetMode("registered");
+    setSelectedCreatePetId("");
     setCreateForm({
+      pet_id: null,
       tutor_name: "",
       phone: "",
       email: "",
@@ -1804,6 +1811,37 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
       expected_time: "08:00",
       notes: ""
     });
+  }
+
+  function applyCreatePet(petId: string) {
+    setSelectedCreatePetId(petId);
+    const pet = sortedPets.find((item) => String(item.id) === petId);
+    if (!pet) return;
+    setCreateForm((current) => ({
+      ...current,
+      pet_id: pet.id,
+      tutor_name: pet.tutor_name || "",
+      phone: pet.tutor_phone || "",
+      email: pet.tutor_email || "",
+      pet_name: pet.name,
+      breed: pet.breed || "",
+      size: pet.size || "Pequeno"
+    }));
+  }
+
+  function switchCreatePetMode(mode: "registered" | "unregistered") {
+    setCreatePetMode(mode);
+    setSelectedCreatePetId("");
+    setCreateForm((current) => ({
+      ...current,
+      pet_id: null,
+      tutor_name: "",
+      phone: "",
+      email: "",
+      pet_name: "",
+      breed: "",
+      size: "Pequeno"
+    }));
   }
 
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
@@ -1957,12 +1995,38 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
         <div className="reservation-modal-backdrop">
           <form className="reservation-modal" onSubmit={saveCreate}>
             <div className="reservation-detail-head"><h2>Nova reserva</h2><button type="button" onClick={() => setCreating(false)}><X size={18} /></button></div>
-            <label>Tutor<input required value={createForm.tutor_name} onChange={(event) => setCreateForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
-            <label>Telefone<input required value={createForm.phone} onChange={(event) => setCreateForm((current) => ({ ...current, phone: event.target.value }))} /></label>
-            <label>E-mail<input value={createForm.email || ""} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} /></label>
-            <label>Pet<input required value={createForm.pet_name} onChange={(event) => setCreateForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
-            <label>Raca<input value={createForm.breed || ""} onChange={(event) => setCreateForm((current) => ({ ...current, breed: event.target.value }))} /></label>
-            <label>Porte<select value={createForm.size || "Pequeno"} onChange={(event) => setCreateForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
+            <div className="reservation-pet-mode span-2">
+              <button type="button" className={createPetMode === "registered" ? "active" : ""} onClick={() => switchCreatePetMode("registered")}><PawPrint size={16} />Pet cadastrado</button>
+              <button type="button" className={createPetMode === "unregistered" ? "active" : ""} onClick={() => switchCreatePetMode("unregistered")}><Plus size={16} />Pet nao cadastrado</button>
+            </div>
+            {createPetMode === "registered" ? (
+              <>
+                <label className="span-2">Pet cadastrado
+                  <select required value={selectedCreatePetId} onChange={(event) => applyCreatePet(event.target.value)}>
+                    <option value="">Selecione um pet...</option>
+                    {sortedPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} - {pet.tutor_name || "Tutor nao informado"}</option>)}
+                  </select>
+                </label>
+                {createForm.pet_name && (
+                  <div className="reservation-autofill-card span-2">
+                    <strong>{createForm.pet_name}</strong>
+                    <span>Tutor: {createForm.tutor_name || "Nao informado"}</span>
+                    <span>Telefone: {createForm.phone || "Nao informado"}</span>
+                    <span>E-mail: {createForm.email || "Nao informado"}</span>
+                    <span>{createForm.breed || "Raca nao informada"} - {createForm.size || "Porte nao informado"}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <label>Tutor<input required value={createForm.tutor_name} onChange={(event) => setCreateForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+                <label>Telefone<input required value={createForm.phone} onChange={(event) => setCreateForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+                <label>E-mail<input value={createForm.email || ""} onChange={(event) => setCreateForm((current) => ({ ...current, email: event.target.value }))} /></label>
+                <label>Pet<input required value={createForm.pet_name} onChange={(event) => setCreateForm((current) => ({ ...current, pet_name: event.target.value, pet_id: null }))} /></label>
+                <label>Raca<input value={createForm.breed || ""} onChange={(event) => setCreateForm((current) => ({ ...current, breed: event.target.value }))} /></label>
+                <label>Porte<select value={createForm.size || "Pequeno"} onChange={(event) => setCreateForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
+              </>
+            )}
             <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value, exit_date: event.target.value === "Hospedagem" ? current.exit_date || current.entry_date : "" }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Entrada<input required type="date" value={createForm.entry_date} onChange={(event) => setCreateForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={createForm.exit_date || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
@@ -2982,6 +3046,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {adminPage === "reservations" && (
         <AdminReservationsPage
           reservations={operationalItems}
+          pets={petItems}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
@@ -3016,6 +3081,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {adminPage === "grooming" && (
         <AdminReservationsPage
           reservations={operationalItems}
+          pets={petItems}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
