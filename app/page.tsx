@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CalendarDays, CheckCircle2, Heart, Home, MessageCircle, PawPrint, Scissors, Sparkles, Stethoscope, Moon } from "lucide-react";
+import { Bell, CalendarDays, CheckCircle2, ChevronRight, Heart, Home, Menu, MessageCircle, PawPrint, Scissors, Stethoscope, Moon, UserRound } from "lucide-react";
 
 const services = [
   {
@@ -39,11 +39,21 @@ export default function HomePage() {
         <span className="decor decor-heart-line" aria-hidden="true" />
 
         <div className="home-hero-grid">
+          <div className="home-mobile-appbar" aria-label="Topo do aplicativo">
+            <button type="button" aria-label="Menu"><Menu size={24} /></button>
+            <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={58} height={58} />
+            <div>
+              <strong>Scolt&Cia</strong>
+              <span>Day Care e Hospedagem</span>
+            </div>
+            <button type="button" className="home-mobile-bell" aria-label="Notificacoes"><Bell size={22} /><i /></button>
+          </div>
+
           <div className="home-hero-copy">
             <span className="home-eyebrow"><Heart size={15} /> Day Care, hospedagem e cuidado diario</span>
             <h1>
               <span className="home-title-desktop">Um dia alegre, seguro e cheio de afeto para o seu cachorro gastar energia, socializar e voltar para <strong>casa feliz.</strong></span>
-              <span className="home-title-mobile">Creche, hotel e carinho para o seu cachorro voltar <strong>feliz.</strong></span>
+              <span className="home-title-mobile">Um dia alegre, seguro e cheio de afeto para o seu <strong>cachorro!</strong></span>
             </h1>
             <div className="home-mobile-points" aria-label="Destaques">
               <span>Creche</span>
@@ -82,6 +92,10 @@ export default function HomePage() {
             );
           })}
         </div>
+        <Link className="home-app-cta" href="/reserva">
+          <span><strong>Pronto para reservar?</strong><small>Agende agora e proporcione o melhor dia para seu pet!</small></span>
+          <ChevronRight size={22} />
+        </Link>
       </section>
 
       <section className="home-diffs">
@@ -110,6 +124,13 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <nav className="home-mobile-bottom-nav" aria-label="Navegacao do aplicativo">
+        <Link href="/" className="active"><Home size={22} /><span>Inicio</span></Link>
+        <Link href="/reserva"><CalendarDays size={22} /><span>Reservas</span></Link>
+        <Link href="/area-do-tutor"><PawPrint size={22} /><span>Meu pet</span></Link>
+        <a href="https://wa.me/5511984130296"><MessageCircle size={22} /><span>Mensagens</span></a>
+        <Link href="/area-do-tutor"><UserRound size={22} /><span>Perfil</span></Link>
+      </nav>
     </main>
   );
 }
