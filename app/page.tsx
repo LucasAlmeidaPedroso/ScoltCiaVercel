@@ -42,8 +42,14 @@ export default function HomePage() {
           <div className="home-hero-copy">
             <span className="home-eyebrow"><Heart size={15} /> Day Care, hospedagem e cuidado diario</span>
             <h1>
-              Um dia alegre, seguro e cheio de afeto para o seu cachorro gastar energia, socializar e voltar para <strong>casa feliz.</strong>
+              <span className="home-title-desktop">Um dia alegre, seguro e cheio de afeto para o seu cachorro gastar energia, socializar e voltar para <strong>casa feliz.</strong></span>
+              <span className="home-title-mobile">Creche, hotel e carinho para o seu cachorro voltar <strong>feliz.</strong></span>
             </h1>
+            <div className="home-mobile-points" aria-label="Destaques">
+              <span>Creche</span>
+              <span>Hospedagem</span>
+              <span>Banho e tosa</span>
+            </div>
             <div className="home-underline" />
             <div className="home-actions">
               <Link className="home-button home-button-aqua" href="/contato"><CalendarDays size={18} /> Agendar visita</Link>

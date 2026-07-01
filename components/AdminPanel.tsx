@@ -297,12 +297,8 @@ function serviceKind(value: string) {
   return "Day Care";
 }
 
-function serviceUnit(value: string): BusinessUnit {
-  return serviceKind(value) === "Hospedagem" ? "hotel" : "creche";
-}
-
-function reservationUnit(item: Reservation): BusinessUnit {
-  return serviceUnit(item.service);
+function reservationVisibleInUnit(item: Reservation, unit: BusinessUnit) {
+  return unit === "hotel" ? serviceKind(item.service) === "Hospedagem" : true;
 }
 
 function unitTitle(unit: BusinessUnit) {
@@ -314,7 +310,7 @@ function unitDescription(unit: BusinessUnit) {
 }
 
 function serviceOptionsForUnit(unit: BusinessUnit) {
-  return unit === "hotel" ? ["Hospedagem"] : ["Day Care", "Banho e Tosa", "Atividade"];
+  return unit === "hotel" ? ["Hospedagem"] : ["Day Care", "Hospedagem", "Banho e Tosa", "Atividade"];
 }
 
 function defaultServiceForUnit(unit: BusinessUnit) {
@@ -1764,6 +1760,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
   const pageItems = filteredReservations.slice((page - 1) * perPage, page * perPage);
   const selected = selectedId ? reservations.find((item) => item.id === selectedId) : undefined;
   const totalRevenue = reservations.filter(isBillableReservation).reduce((sum, item) => sum + reservationValue(item), 0);
+  const hosting = reservations.filter((item) => serviceKind(item.service) === "Hospedagem").length;
   const confirmed = reservations.filter((item) => item.status === "Confirmada").length;
   const canceled = reservations.filter((item) => ["Cancelada", "Reprovada"].includes(item.status)).length;
   const sortedPets = useMemo(() => [...pets].sort((a, b) => a.name.localeCompare(b.name)), [pets]);
@@ -1898,6 +1895,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
 
       <div className="reservation-metrics">
         <article><span className="aqua"><CalendarCheck size={28} /></span><div><small>Total de reservas</small><strong>{reservations.length}</strong><em>+ {filteredReservations.length} no filtro atual</em></div></article>
+        <article><span className="purple"><Home size={28} /></span><div><small>Hospedagem</small><strong>{hosting}</strong><em>Diarias e pernoites</em></div></article>
         <article><span className="purple"><Clock size={28} /></span><div><small>Pendentes</small><strong>{pendingCount}</strong><em>Aguardando avaliacao</em></div></article>
         <article><span className="yellow"><CheckCircle2 size={28} /></span><div><small>Confirmadas</small><strong>{confirmed}</strong><em>Prontas para receber</em></div></article>
         <article><span className="pink"><X size={28} /></span><div><small>Canceladas</small><strong>{canceled}</strong><em>Canceladas ou recusadas</em></div></article>
@@ -2214,6 +2212,7 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
       {isWidgetVisible("kpis") && <div className="admin-kpi-grid dashboard-widget" style={{ order: visibleWidgets.indexOf("kpis") }}>
         <button className="admin-kpi kpi-aqua" onClick={() => onOpenReservations()}><span><CalendarCheck size={30} /></span><div><small>{isHotel ? "Entradas hoje" : "Reservas hoje"}</small><strong>{todayReservations.length}</strong><em>{reservations.length} registro(s) em {unitTitle(businessUnit)}</em></div></button>
         <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>{isHotel ? "Hospedes ativos" : "Capacidade creche"}</small><strong>{isHotel ? activeHosting.length : `${todayReservations.length}/${maxCapacity}`}</strong><em>{isHotel ? "Diarias em andamento" : "Ocupacao operacional"}</em></div></button>
+        {!isHotel && <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>Hospedagem</small><strong>{activeHosting.length}</strong><em>Hospede(s) ativo(s)</em></div></button>}
         <button className="admin-kpi kpi-yellow" onClick={() => onOpenReservations()}><span><PawPrint size={30} /></span><div><small>{isHotel ? "Diaria hotel" : "Day Care"}</small><strong>{isHotel ? money(servicePrices.Hospedagem) : dayCareToday.length}</strong><em>{isHotel ? "Valor base por noite" : "Ativos hoje"}</em></div></button>
         <button className="admin-kpi kpi-pink" onClick={() => onOpenReservations()}><span><Scissors size={30} /></span><div><small>{isHotel ? "Ticket medio" : "Banho e Tosa"}</small><strong>{isHotel ? money(ticketAverage) : groomingToday.length}</strong><em>{isHotel ? "Media do Hotel hoje" : "Agendamentos hoje"}</em></div></button>
         <button className="admin-kpi kpi-aqua" onClick={() => onExportReport("financeiro")}><span><CreditCard size={30} /></span><div><small>Faturamento {unitTitle(businessUnit)}</small><strong>{money(todayRevenue)}</strong><em>{todayReservations.length} reserva(s)</em></div></button>
@@ -2361,7 +2360,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
   const loadingTimerRef = useRef<number>();
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
-  const operationalItems = useMemo(() => items.filter((item) => reservationUnit(item) === activeUnit), [items, activeUnit]);
+  const operationalItems = useMemo(() => items.filter((item) => reservationVisibleInUnit(item, activeUnit)), [items, activeUnit]);
   const unitAdminRecords = useMemo(() => adminRecords.filter((record) => recordUnit(record, activeUnit) === activeUnit), [adminRecords, activeUnit]);
 
   function showAdminLoading(label: string, duration = 650) {
@@ -2392,7 +2391,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     if (unit === activeUnit) return;
     setActiveUnit(unit);
     setReservationInitialStatus("all");
-    setSelectedId(items.find((item) => reservationUnit(item) === unit)?.id ?? 0);
+    setSelectedId(items.find((item) => reservationVisibleInUnit(item, unit))?.id ?? 0);
     if (unit === "hotel" && adminPage === "grooming") setAdminPage("dashboard");
     showAdminLoading(`Abrindo ${unitTitle(unit)}...`);
   }
@@ -2470,7 +2469,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
     const filteredItems = items.filter((item) => {
-      if (reservationUnit(item) !== activeUnit) return false;
+      if (!reservationVisibleInUnit(item, activeUnit)) return false;
       if (kind === "daycare") return serviceKind(item.service) === "Day Care";
       if (kind === "hospedagem") return serviceKind(item.service) === "Hospedagem";
       return true;
