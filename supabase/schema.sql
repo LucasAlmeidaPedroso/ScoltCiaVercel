@@ -81,6 +81,7 @@ create table if not exists reservations (
   entry_date date not null,
   exit_date date,
   expected_time text,
+  exit_time text,
   notes text,
   status text not null default 'Aguardando aprovacao',
   created_at timestamptz not null default now()
@@ -210,6 +211,7 @@ on conflict (id) do nothing;
 alter table app_users add column if not exists tutor_id bigint references tutors(id) on delete set null;
 alter table app_users add column if not exists entities jsonb not null default '["creche"]'::jsonb;
 alter table app_users add column if not exists permissions jsonb;
+alter table reservations add column if not exists exit_time text;
 -- Campos extras do pet usados na Area do Tutor (aba Meu Pet).
 alter table pets add column if not exists allergies text;
 alter table pets add column if not exists microchip text;

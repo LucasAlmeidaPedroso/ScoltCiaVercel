@@ -25,6 +25,7 @@ const initial = {
   entry_date: "",
   exit_date: "",
   expected_time: "",
+  exit_time: "",
   notes: ""
 };
 
@@ -120,7 +121,8 @@ export function ReservationForm({ pets, reservations = [], settings = { max_capa
         </div>
       )}
       <label>Data de saida<input type="date" value={form.exit_date} onChange={(event) => update("exit_date", event.target.value)} /></label>
-      <label>Horario previsto<input type="time" value={form.expected_time} onChange={(event) => update("expected_time", event.target.value)} /></label>
+      <label>Horario de entrada<input type="time" value={form.expected_time} onChange={(event) => update("expected_time", event.target.value)} /></label>
+      <label>Horario de saida<input type="time" value={form.exit_time} onChange={(event) => update("exit_time", event.target.value)} /></label>
       <label className="span-2">Observacoes<textarea rows={4} value={form.notes} onChange={(event) => update("notes", event.target.value)} /></label>
       <button className="primary-button span-2" type="submit" disabled={!admin && isFull}>{admin ? "Cadastrar e confirmar" : "Enviar para aprovacao"}</button>
       {message && <strong className="span-2">{message}</strong>}

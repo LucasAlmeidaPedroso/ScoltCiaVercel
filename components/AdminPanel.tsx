@@ -403,7 +403,7 @@ function serviceIconClass(service: string) {
   return "daycare";
 }
 
-type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
+type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "exit_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
 type PetPatch = Partial<Pick<PetPayload, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url" | "tutor_ids">>;
 type TutorPatch = Partial<TutorPayload>;
 
@@ -1329,6 +1329,7 @@ function minutesFromTime(value?: string) {
 }
 
 function agendaEndTime(item: Reservation) {
+  if (item.exit_time) return item.exit_time;
   const start = minutesFromTime(item.expected_time);
   const duration = serviceKind(item.service) === "Hospedagem" ? 120 : serviceKind(item.service) === "Banho e Tosa" ? 90 : serviceKind(item.service) === "Atividade" ? 60 : 240;
   const end = start + duration;
@@ -1359,6 +1360,7 @@ function AdminAgendaPage({ reservations, pendingCount, businessUnit, onPatch, on
     entry_date: selectedDate,
     exit_date: "",
     expected_time: "08:00",
+    exit_time: "",
     notes: ""
   });
   const selected = new Date(`${selectedDate}T12:00:00`);
@@ -1400,6 +1402,7 @@ function AdminAgendaPage({ reservations, pendingCount, businessUnit, onPatch, on
       entry_date: date,
       exit_date: service === "Hospedagem" ? date : "",
       expected_time: time,
+      exit_time: "",
       notes: ""
     });
   }
@@ -1496,7 +1499,7 @@ function AdminAgendaPage({ reservations, pendingCount, businessUnit, onPatch, on
         <div className="reservation-modal-backdrop">
           <aside className="reservation-detail-card reservation-detail-modal">
             <div className="reservation-detail-head"><h2>{detail.pet_name}</h2><em className={`reservation-status ${statusClass(detail.status)}`}>{detail.status}</em><button onClick={() => setDetail(null)}><X size={18} /></button></div>
-            <div className="reservation-detail-section"><h3>Agendamento</h3><dl><dt>Servico</dt><dd>{serviceKind(detail.service)}</dd><dt>Data</dt><dd>{dateLabel(detail.entry_date)}</dd><dt>Horario</dt><dd>{detail.expected_time || "--:--"} - {agendaEndTime(detail)}</dd><dt>Tutor</dt><dd>{detail.tutor_name}</dd><dt>Telefone</dt><dd>{detail.phone}</dd></dl></div>
+            <div className="reservation-detail-section"><h3>Agendamento</h3><dl><dt>Servico</dt><dd>{serviceKind(detail.service)}</dd><dt>Data</dt><dd>{dateLabel(detail.entry_date)}</dd><dt>Entrada</dt><dd>{detail.expected_time || "--:--"}</dd><dt>Saida</dt><dd>{agendaEndTime(detail)}</dd><dt>Tutor</dt><dd>{detail.tutor_name}</dd><dt>Telefone</dt><dd>{detail.phone}</dd></dl></div>
             <div className="reservation-detail-section"><h3>Observacoes</h3><p>{detail.notes || "Sem observacoes cadastradas."}</p></div>
             <div className="reservation-detail-actions">
               <button className="edit" onClick={() => patchFromDetail(detail.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Iniciar</button>
@@ -1517,7 +1520,8 @@ function AdminAgendaPage({ reservations, pendingCount, businessUnit, onPatch, on
             <label>Pet<input required value={form.pet_name} onChange={(event) => setForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
             <label>Servico<select value={form.service} onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Data<input type="date" required value={form.entry_date} onChange={(event) => setForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
-            <label>Horario<input type="time" required value={form.expected_time || ""} onChange={(event) => setForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de entrada<input type="time" required value={form.expected_time || ""} onChange={(event) => setForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de saida<input type="time" value={form.exit_time || ""} onChange={(event) => setForm((current) => ({ ...current, exit_time: event.target.value }))} /></label>
             <label>Raca<input value={form.breed || ""} onChange={(event) => setForm((current) => ({ ...current, breed: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={form.notes || ""} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Salvar agendamento</button>
@@ -1556,6 +1560,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
     entry_date: localDateKey(),
     exit_date: "",
     expected_time: new Date().toTimeString().slice(0, 5),
+    exit_time: "",
     notes: "Check-in sem agendamento"
   });
   const today = localDateKey();
@@ -1595,7 +1600,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
   }
 
   async function confirmCheckout(item: Reservation) {
-    await onPatch(item.id, { status: "Concluida", notes: notes || item.notes || "Check-out realizado." });
+    await onPatch(item.id, { status: "Concluida", exit_time: item.exit_time || new Date().toTimeString().slice(0, 5), notes: notes || item.notes || "Check-out realizado." });
     setDetail(null);
   }
 
@@ -1613,6 +1618,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
       entry_date: today,
       exit_date: "",
       expected_time: new Date().toTimeString().slice(0, 5),
+      exit_time: "",
       notes: "Check-in sem agendamento"
     });
   }
@@ -1680,7 +1686,8 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
               <button onClick={() => setDetail(null)}><X size={18} /></button>
             </div>
             <div className="checkin-detail-cards">
-              <article><CalendarDays size={18} /><small>Data e hora da reserva</small><strong>{dateLabel(detail.entry_date)} - {detail.expected_time || "--:--"}</strong></article>
+              <article><CalendarDays size={18} /><small>Entrada prevista</small><strong>{dateLabel(detail.entry_date)} - {detail.expected_time || "--:--"}</strong></article>
+              <article><Clock size={18} /><small>Saida prevista</small><strong>{detail.exit_time || "Nao informada"}</strong></article>
               <article><Clock size={18} /><small>Previsao de saida</small><strong>{detail.exit_date ? dateLabel(detail.exit_date) : dateLabel(detail.entry_date)} - {agendaEndTime(detail)}</strong></article>
             </div>
             <section className="checkin-checklist">
@@ -1702,7 +1709,8 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
             <label>E-mail<input value={walkInForm.email || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input required value={walkInForm.pet_name} onChange={(event) => setWalkInForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
             <label>Servico<select value={walkInForm.service} onChange={(event) => setWalkInForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
-            <label>Horario<input type="time" required value={walkInForm.expected_time || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de entrada<input type="time" required value={walkInForm.expected_time || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de saida<input type="time" value={walkInForm.exit_time || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, exit_time: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={walkInForm.notes || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Criar e fazer check-in</button>
           </form>
@@ -1736,6 +1744,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
     entry_date: localDateKey(),
     exit_date: "",
     expected_time: "08:00",
+    exit_time: "",
     notes: ""
   });
   const perPage = 8;
@@ -1787,6 +1796,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       entry_date: item.entry_date,
       exit_date: item.exit_date || "",
       expected_time: item.expected_time || "",
+      exit_time: item.exit_time || "",
       notes: item.notes || ""
     });
   }
@@ -1809,6 +1819,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       entry_date: localDateKey(),
       exit_date: "",
       expected_time: "08:00",
+      exit_time: "",
       notes: ""
     });
   }
@@ -1923,7 +1934,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
                 <span><b>{item.tutor_name}</b><small>{item.phone}</small></span>
                 <span className="reservation-pet-cell"><i>{item.pet_name.slice(0, 1)}</i><span><b>{item.pet_name}</b><small>{item.breed || item.size || "Pet"}</small></span></span>
                 <span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span>
-                <span><b>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</b><small>ate {dateLabel(item.exit_date || item.entry_date)}</small></span>
+                <span><b>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</b><small>ate {dateLabel(item.exit_date || item.entry_date)} {item.exit_time || ""}</small></span>
                 <span><em className={`reservation-status ${statusClass(item.status)}`}>{item.status}</em></span>
                 <span><b>{money(reservationValue(item))}</b></span>
                 <span><MoreVertical size={18} /></span>
@@ -1965,7 +1976,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
               </div>
               <div className="reservation-detail-period">
                 <strong>{dateLabel(detail.entry_date)} as {detail.expected_time || "--:--"}</strong>
-                <span>ate {dateLabel(detail.exit_date || detail.entry_date)}</span>
+                <span>ate {dateLabel(detail.exit_date || detail.entry_date)} {detail.exit_time || ""}</span>
                 <small>{reservationDays(detail)} diaria(s)</small>
               </div>
               <div className="reservation-detail-section">
@@ -1974,7 +1985,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
               </div>
               <div className="reservation-detail-section">
                 <h3>Informacoes da reserva</h3>
-                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)} as {detail.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Scolt&amp;Cia</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)}</dd><dt>Valor estimado</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Nao informado</dd></dl>
+                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)}</dd><dt>Horario de entrada</dt><dd>{detail.expected_time || "--:--"}</dd><dt>Horario de saida</dt><dd>{detail.exit_time || "Nao informado"}</dd><dt>Unidade</dt><dd>Scolt&amp;Cia</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)}</dd><dt>Valor estimado</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Nao informado</dd></dl>
               </div>
               <div className="reservation-detail-section">
                 <h3>Observacoes</h3>
@@ -2030,7 +2041,8 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
             <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value, exit_date: event.target.value === "Hospedagem" ? current.exit_date || current.entry_date : "" }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Entrada<input required type="date" value={createForm.entry_date} onChange={(event) => setCreateForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={createForm.exit_date || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
-            <label>Horario<input type="time" value={createForm.expected_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de entrada<input type="time" value={createForm.expected_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de saida<input type="time" value={createForm.exit_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_time: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={createForm.notes || ""} onChange={(event) => setCreateForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Criar reserva</button>
           </form>
@@ -2048,7 +2060,8 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
             <label>Servico<select value={editForm.service || defaultServiceForUnit(businessUnit)} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Entrada<input type="date" value={editForm.entry_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={editForm.exit_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
-            <label>Horario<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de entrada<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+            <label>Horario de saida<input type="time" value={editForm.exit_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_time: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={editForm.notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Salvar alteracoes</button>
           </form>
@@ -2466,14 +2479,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       return true;
     });
     const rows = [
-      ["id", "pet", "tutor", "telefone", "email", "servico", "entrada", "saida", "horario", "status", "valor_estimado"],
+      ["id", "pet", "tutor", "telefone", "email", "servico", "entrada", "saida", "horario_entrada", "horario_saida", "status", "valor_estimado"],
       ...filteredItems.map((item) => {
         const kindName = serviceKind(item.service);
         const start = new Date(`${item.entry_date}T12:00:00`);
         const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
         const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
         const price = servicePrices[kindName] || 85;
-        return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.status, kind === "financeiro" ? String(price * days) : ""];
+        return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.exit_time || "", item.status, kind === "financeiro" ? String(price * days) : ""];
       })
     ];
     const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");

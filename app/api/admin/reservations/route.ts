@@ -20,7 +20,7 @@ export async function PATCH(request: Request) {
   const { id, ...payload } = await request.json();
   if (!id) return NextResponse.json({ error: "Reserva nao informada" }, { status: 400 });
 
-  const allowedFields = ["status", "expected_time", "notes", "exit_date", "entry_date", "service", "pet_name", "breed", "size", "tutor_name", "phone", "email"] as const;
+  const allowedFields = ["status", "expected_time", "exit_time", "notes", "exit_date", "entry_date", "service", "pet_name", "breed", "size", "tutor_name", "phone", "email"] as const;
   const updates = Object.fromEntries(
     Object.entries(payload).filter(([key]) => allowedFields.includes(key as typeof allowedFields[number]))
   );

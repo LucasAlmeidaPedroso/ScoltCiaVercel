@@ -49,6 +49,7 @@ export type ReservationPayload = {
   entry_date: string;
   exit_date?: string | null;
   expected_time?: string;
+  exit_time?: string;
   notes?: string;
 };
 
