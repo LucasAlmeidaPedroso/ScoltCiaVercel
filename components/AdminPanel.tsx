@@ -1,9 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Filter, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AdminRecord, AdminRecordPayload, AppUser, BusinessEntity, DaycareSettings, PermissionKey, PermissionLevel, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload, UserPermissions } from "@/lib/types";
@@ -26,8 +27,6 @@ const statusTabs = [
   { label: "Concluidas", status: "Concluida" },
   { label: "Canceladas", status: "Cancelada" }
 ];
-
-const googleLoginEnabled = false;
 
 const businessUnits: Array<{ key: BusinessUnit; title: string; shortTitle: string; description: string }> = [
   { key: "creche", title: "Creche", shortTitle: "Creche", description: "Day Care, banho, tosa e rotina diaria." },
@@ -2340,8 +2339,6 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessToken, setAccessToken] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [remember, setRemember] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [adminName, setAdminName] = useState("Marina");
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
@@ -2595,28 +2592,6 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     } finally {
       hideAdminLoading();
     }
-  }
-
-  async function googleLogin() {
-    if (!googleLoginEnabled) {
-      setLoginMessage("Login com Google preparado, mas desativado por enquanto.");
-      return;
-    }
-
-    setLoginMessage("");
-    const supabase = getSupabaseBrowser();
-
-    if (!supabase) {
-      setLoginMessage("Login com Google indisponivel no momento.");
-      return;
-    }
-
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/admin`
-      }
-    });
   }
 
   async function logoutAdmin() {
@@ -2916,43 +2891,24 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     return (
       <>
         {adminLoadingLabel && <LoadingOverlay label={adminLoadingLabel} />}
-        <div className="login-showcase">
-          <section className="login-visual">
-            <div className="login-logo">
-              <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={74} height={74} />
-              <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
+        <div className="tutor-login admin-login">
+          <div className="tutor-login-card">
+            <div className="tutor-login-brand">
+              <img src="/img/logo-scolt-cia.png" alt="Scolt&Cia" />
+              <span className="tutor-login-eyebrow"><ShieldCheck size={15} /> Area Admin</span>
+              <h1>Bem-vindo de volta! <PawPrint size={22} /></h1>
+              <p>Acesse o sistema de gestao da Scolt&amp;Cia.</p>
             </div>
-            <div className="login-copy">
-              <h1>Cuidado, carinho e diversao</h1>
-              <p>Um lugar seguro e cheio de amor para o seu melhor amigo.</p>
-            </div>
-            <Image className="login-dogs" src="/img/hero-dachshund-akita.png" alt="Cachorros na creche" width={560} height={420} priority />
-            <div className="login-benefits">
-              <div><span><ShieldCheck size={28} /></span><strong>Ambiente seguro</strong><p>Rotina acompanhada</p></div>
-              <div><span><Heart size={28} /></span><strong>Muito carinho</strong><p>Equipe apaixonada por caes</p></div>
-              <div><span><Gamepad2 size={28} /></span><strong>Diversao garantida</strong><p>Atividades diarias</p></div>
-            </div>
-          </section>
 
-          <form className="login-form-panel" onSubmit={login}>
-            <h2>Bem-vindo de volta!</h2>
-            <p>Faca login para acessar o sistema de gestao.</p>
-            <label>E-mail
-              <div className="input-icon"><Mail size={18} /><input type="email" placeholder="seu@email.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
-            </label>
-            <label>Senha
-              <div className="input-icon"><Lock size={18} /><input type={showPassword ? "text" : "password"} placeholder="Digite sua senha" value={password} onChange={(event) => setPassword(event.target.value)} /><button type="button" onClick={() => setShowPassword((current) => !current)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
-            </label>
-            <div className="login-row">
-              <label className="remember-row"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} />Lembrar de mim</label>
-              <a href="mailto:lucasalmeidapedroso@gmail.com">Esqueci minha senha</a>
-            </div>
-            <button className="login-submit" type="submit"><Lock size={18} />Entrar</button>
-            <div className="login-divider"><span></span>ou<span></span></div>
-            <button className="google-button" type="button" onClick={googleLogin} disabled={!googleLoginEnabled}><strong>G</strong>Entrar com Google</button>
-            {loginMessage && <strong className="form-warning">{loginMessage}</strong>}
-            <p className="login-help">Ainda nao tem uma conta? <a href="mailto:lucasalmeidapedroso@gmail.com">Fale com o administrador</a></p>
-          </form>
+            <form className="tutor-login-form" onSubmit={login}>
+              <label><Mail size={17} /><input type="email" placeholder="Seu e-mail" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+              <label><Lock size={17} /><input type="password" placeholder="Sua senha" value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
+              {loginMessage && <p className="tutor-login-error" role="alert">{loginMessage}</p>}
+              <button className="tutor-login-btn" type="submit">Entrar</button>
+            </form>
+
+            <Link href="/" className="tutor-login-back"><ArrowLeft size={15} /> Voltar ao site</Link>
+          </div>
         </div>
       </>
     );

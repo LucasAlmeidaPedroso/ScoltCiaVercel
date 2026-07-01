@@ -6906,6 +6906,8 @@ body:has(.admin-app-route) .site-footer {
 .tutor-login-brand img { width: 64px; height: 64px; border-radius: 20px; box-shadow: 0 12px 26px rgba(24, 185, 177, .28); }
 .tutor-login-eyebrow { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .5px; color: var(--aqua-dark); }
 .tutor-login-brand h1 { margin: 8px 0 4px; font-size: 24px; font-weight: 900; }
+.admin-login .tutor-login-brand h1 { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.admin-login .tutor-login-brand h1 svg { color: var(--purple); }
 .tutor-login-brand p { margin: 0; color: var(--muted); font-weight: 600; font-size: 14px; }
 .tutor-login-form { display: flex; flex-direction: column; gap: 12px; }
 .tutor-login-form label { display: flex; align-items: center; gap: 11px; padding: 0 16px; border: 1px solid var(--line); border-radius: 14px; background: #f7f9fc; transition: border-color .15s; }
