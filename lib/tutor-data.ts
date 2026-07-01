@@ -1,14 +1,14 @@
-import { cookies } from "next/headers";
+﻿import { cookies } from "next/headers";
 import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
 import { getTutorByEmail } from "./auth";
 import { readSessionToken, TUTOR_COOKIE } from "./tutor-session";
-import * as demo from "./tutor-demo";
+import * as empty from "./tutor-empty";
 
 // =====================================================================
-// Camada de dados da Area do Tutor (real-or-demo).
+// Camada de dados da Area do Tutor.
 // Resolve o tutor logado pelo cookie de sessao, busca tudo do Supabase
-// (via service role) e mapeia para as MESMAS formas de lib/tutor-demo.
-// Sem Supabase configurado (ou sem dados), cai no demo automaticamente.
+// (via service role) e mapeia para as mesmas formas usadas pelas telas.
+// Sem Supabase configurado (ou sem dados), retorna estruturas vazias.
 // =====================================================================
 
 const MS_YEAR = 1000 * 60 * 60 * 24 * 365.25;
@@ -70,56 +70,54 @@ async function resolveAccount() {
 }
 
 export type TutorData = {
-  demoMode: boolean;
-  tutor: typeof demo.tutor;
-  pet: typeof demo.pet;
-  petStatus: typeof demo.petStatus;
-  health: typeof demo.health;
-  personality: typeof demo.personality;
-  timeline: typeof demo.timeline;
-  photos: typeof demo.photos;
-  videos: typeof demo.videos;
-  vaccines: typeof demo.vaccines;
-  financial: typeof demo.financial;
-  messages: typeof demo.messages;
-  quickReplies: typeof demo.quickReplies;
-  notifications: typeof demo.notifications;
-  agenda: typeof demo.agenda;
-  nextReservation: typeof demo.nextReservation;
-  dailyReport: typeof demo.dailyReport;
-  achievements: typeof demo.achievements;
-  lifeTimeline: typeof demo.lifeTimeline;
-  indicators: typeof demo.indicators;
-  weightHistory: typeof demo.weightHistory;
-  aiInsights: typeof demo.aiInsights;
-  dashboardAvisos: typeof demo.dashboardAvisos;
+  tutor: typeof empty.tutor;
+  pet: typeof empty.pet;
+  petStatus: typeof empty.petStatus;
+  health: typeof empty.health;
+  personality: typeof empty.personality;
+  timeline: typeof empty.timeline;
+  photos: typeof empty.photos;
+  videos: typeof empty.videos;
+  vaccines: typeof empty.vaccines;
+  financial: typeof empty.financial;
+  messages: typeof empty.messages;
+  quickReplies: typeof empty.quickReplies;
+  notifications: typeof empty.notifications;
+  agenda: typeof empty.agenda;
+  nextReservation: typeof empty.nextReservation;
+  dailyReport: typeof empty.dailyReport;
+  achievements: typeof empty.achievements;
+  lifeTimeline: typeof empty.lifeTimeline;
+  indicators: typeof empty.indicators;
+  weightHistory: typeof empty.weightHistory;
+  aiInsights: typeof empty.aiInsights;
+  dashboardAvisos: typeof empty.dashboardAvisos;
 };
 
-function demoBundle(demoMode: boolean): TutorData {
+function emptyBundle(): TutorData {
   return {
-    demoMode,
-    tutor: demo.tutor,
-    pet: demo.pet,
-    petStatus: demo.petStatus,
-    health: demo.health,
-    personality: demo.personality,
-    timeline: demo.timeline,
-    photos: demo.photos,
-    videos: demo.videos,
-    vaccines: demo.vaccines,
-    financial: demo.financial,
-    messages: demo.messages,
-    quickReplies: demo.quickReplies,
-    notifications: demo.notifications,
-    agenda: demo.agenda,
-    nextReservation: demo.nextReservation,
-    dailyReport: demo.dailyReport,
-    achievements: demo.achievements,
-    lifeTimeline: demo.lifeTimeline,
-    indicators: demo.indicators,
-    weightHistory: demo.weightHistory,
-    aiInsights: demo.aiInsights,
-    dashboardAvisos: demo.dashboardAvisos
+    tutor: empty.tutor,
+    pet: empty.pet,
+    petStatus: empty.petStatus,
+    health: empty.health,
+    personality: empty.personality,
+    timeline: empty.timeline,
+    photos: empty.photos,
+    videos: empty.videos,
+    vaccines: empty.vaccines,
+    financial: empty.financial,
+    messages: empty.messages,
+    quickReplies: empty.quickReplies,
+    notifications: empty.notifications,
+    agenda: empty.agenda,
+    nextReservation: empty.nextReservation,
+    dailyReport: empty.dailyReport,
+    achievements: empty.achievements,
+    lifeTimeline: empty.lifeTimeline,
+    indicators: empty.indicators,
+    weightHistory: empty.weightHistory,
+    aiInsights: empty.aiInsights,
+    dashboardAvisos: empty.dashboardAvisos
   };
 }
 
@@ -128,11 +126,11 @@ export async function getTutorData(): Promise<TutorData> {
   // (cada tutor ve apenas os proprios dados; nunca cacheia entre usuarios).
   cookies();
 
-  if (!hasSupabaseEnv()) return demoBundle(true);
+  if (!hasSupabaseEnv()) return emptyBundle();
 
   try {
   const account = await resolveAccount();
-  if (!account || !account.tutor_id) return demoBundle(true);
+  if (!account || !account.tutor_id) return emptyBundle();
 
   const supabase = getSupabaseAdmin();
   const tutorId = account.tutor_id;
@@ -141,7 +139,7 @@ export async function getTutorData(): Promise<TutorData> {
   const { data: petRows } = await supabase.from("pets").select("*").eq("tutor_id", tutorId).order("id").limit(1);
   const petRow = petRows?.[0];
 
-  if (!petRow) return demoBundle(true);
+  if (!petRow) return emptyBundle();
   const petId = petRow.id;
 
   const [
@@ -172,31 +170,31 @@ export async function getTutorData(): Promise<TutorData> {
   const billingRow = billing.data;
   const reportData = reportRow.data;
 
-  const tutor: typeof demo.tutor = {
-    ...demo.tutor,
-    name: tutorRow?.full_name || account.name || demo.tutor.name,
-    firstName: (tutorRow?.full_name || account.name || demo.tutor.firstName).split(" ")[0],
-    email: tutorRow?.email || account.email || demo.tutor.email,
-    phone: tutorRow?.phone || demo.tutor.phone,
-    address: tutorRow?.address || demo.tutor.address
+  const tutor: typeof empty.tutor = {
+    ...empty.tutor,
+    name: tutorRow?.full_name || account.name || empty.tutor.name,
+    firstName: (tutorRow?.full_name || account.name || empty.tutor.firstName).split(" ")[0],
+    email: tutorRow?.email || account.email || empty.tutor.email,
+    phone: tutorRow?.phone || empty.tutor.phone,
+    address: tutorRow?.address || empty.tutor.address
   };
 
-  const pet: typeof demo.pet = {
-    ...demo.pet,
+  const pet: typeof empty.pet = {
+    ...empty.pet,
     name: petRow.name,
-    photo: petRow.photo_url || demo.pet.photo,
-    cover: petRow.cover_url || demo.pet.cover,
-    breed: petRow.breed || demo.pet.breed,
-    age: ageFrom(petRow.birth_date) || demo.pet.age,
-    birthDate: fmtDate(petRow.birth_date) || demo.pet.birthDate,
-    weight: petRow.weight != null ? `${String(petRow.weight).replace(".", ",")} kg` : demo.pet.weight,
-    sex: petRow.sex || demo.pet.sex,
-    size: petRow.size || demo.pet.size,
-    microchip: petRow.microchip || demo.pet.microchip,
-    neutered: petRow.neutered ?? demo.pet.neutered
+    photo: petRow.photo_url || empty.pet.photo,
+    cover: petRow.cover_url || empty.pet.cover,
+    breed: petRow.breed || empty.pet.breed,
+    age: ageFrom(petRow.birth_date) || empty.pet.age,
+    birthDate: fmtDate(petRow.birth_date) || empty.pet.birthDate,
+    weight: petRow.weight != null ? `${String(petRow.weight).replace(".", ",")} kg` : empty.pet.weight,
+    sex: petRow.sex || empty.pet.sex,
+    size: petRow.size || empty.pet.size,
+    microchip: petRow.microchip || empty.pet.microchip,
+    neutered: petRow.neutered ?? empty.pet.neutered
   };
 
-  const petStatus: typeof demo.petStatus = presenceRow
+  const petStatus: typeof empty.petStatus = presenceRow
     ? {
         present: presenceRow.present,
         location: presenceRow.location || "",
@@ -204,38 +202,38 @@ export async function getTutorData(): Promise<TutorData> {
         lastUpdate: fmtTime(presenceRow.updated_at),
         lastVisit: presenceRow.last_visit || ""
       }
-    : demo.petStatus;
+    : empty.petStatus;
 
-  const health: typeof demo.health = {
-    allergies: nonEmpty(splitList(petRow.allergies), demo.health.allergies),
-    restrictions: nonEmpty(splitList(petRow.food_restrictions), demo.health.restrictions),
-    medications: nonEmpty(splitList(petRow.medications), demo.health.medications),
-    notes: petRow.important_notes || demo.health.notes,
-    vet: petRow.veterinarian || demo.health.vet,
-    emergencyContact: tutorRow?.emergency_contact || demo.health.emergencyContact
+  const health: typeof empty.health = {
+    allergies: nonEmpty(splitList(petRow.allergies), empty.health.allergies),
+    restrictions: nonEmpty(splitList(petRow.food_restrictions), empty.health.restrictions),
+    medications: nonEmpty(splitList(petRow.medications), empty.health.medications),
+    notes: petRow.important_notes || empty.health.notes,
+    vet: petRow.veterinarian || empty.health.vet,
+    emergencyContact: tutorRow?.emergency_contact || empty.health.emergencyContact
   };
 
   const personality = nonEmpty(
-    (traits.data || []).map((t) => ({ emoji: t.emoji || "🐾", text: t.label })),
-    demo.personality
+    (traits.data || []).map((t) => ({ emoji: t.emoji || "ðŸ¾", text: t.label })),
+    empty.personality
   );
 
   const timeline = nonEmpty(
-    (events.data || []).map((e) => ({ time: e.event_time, icon: e.icon || "🐾", title: e.title, detail: e.detail || undefined, type: e.type })),
-    demo.timeline
-  ) as typeof demo.timeline;
+    (events.data || []).map((e) => ({ time: e.event_time, icon: e.icon || "ðŸ¾", title: e.title, detail: e.detail || undefined, type: e.type })),
+    empty.timeline
+  ) as typeof empty.timeline;
 
   const photos = nonEmpty(
     (photoRows.data || []).map((p) => ({
       id: p.id, src: p.url, caption: p.caption || "", time: p.period === "Hoje" ? fmtTime(p.taken_at) : fmtShort(p.taken_at),
       by: p.registered_by || "Equipe Scolt", place: p.place || "", period: p.period || "Todas", favorite: p.favorite
     })),
-    demo.photos
-  ) as typeof demo.photos;
+    empty.photos
+  ) as typeof empty.photos;
 
   const videos = nonEmpty(
     (videoRows.data || []).map((v) => ({ id: v.id, thumb: v.thumb_url || "", caption: v.caption || "", date: fmtShort(v.recorded_at), duration: v.duration || "" })),
-    demo.videos
+    empty.videos
   );
 
   const vaccines = nonEmpty(
@@ -243,31 +241,31 @@ export async function getTutorData(): Promise<TutorData> {
       name: v.name, applied: fmtDate(v.applied_date), valid: fmtDate(v.valid_until),
       status: vaccineStatus(v.valid_until), required: v.required
     })),
-    demo.vaccines
-  ) as typeof demo.vaccines;
+    empty.vaccines
+  ) as typeof empty.vaccines;
 
   const invoices = (invoiceRows.data || []).map((i) => ({
     date: fmtDate(i.invoice_date), description: i.description, method: i.method, value: Number(i.value), status: i.status
   }));
-  const financial: typeof demo.financial = billingRow
+  const financial: typeof empty.financial = billingRow
     ? {
         monthlyValue: Number(billingRow.monthly_value),
-        plan: billingRow.plan || demo.financial.plan,
+        plan: billingRow.plan || empty.financial.plan,
         packagesLeft: billingRow.packages_left,
         packageTotal: billingRow.package_total,
         nextDue: fmtDate(billingRow.next_due),
-        invoices: nonEmpty(invoices, demo.financial.invoices) as typeof demo.financial.invoices
+        invoices: nonEmpty(invoices, empty.financial.invoices) as typeof empty.financial.invoices
       }
-    : demo.financial;
+    : empty.financial;
 
   const messages = nonEmpty(
     (messageRows.data || []).map((m) => ({ id: m.id, from: m.sender, author: m.author || "", text: m.body, time: fmtTime(m.created_at) })),
-    demo.messages
-  ) as typeof demo.messages;
+    empty.messages
+  ) as typeof empty.messages;
 
   const notifications = nonEmpty(
-    (notifRows.data || []).map((n) => ({ id: n.id, icon: n.icon || "🔔", text: n.body, time: fmtTime(n.created_at), read: n.read })),
-    demo.notifications
+    (notifRows.data || []).map((n) => ({ id: n.id, icon: n.icon || "ðŸ””", text: n.body, time: fmtTime(n.created_at), read: n.read })),
+    empty.notifications
   );
 
   const agenda = nonEmpty(
@@ -276,45 +274,45 @@ export async function getTutorData(): Promise<TutorData> {
       time: r.expected_time || "07:30", service: r.service,
       status: (r.status === "Confirmada" ? "Confirmada" : r.status === "Concluida" ? "Concluida" : "Aguardando")
     })),
-    demo.agenda
-  ) as typeof demo.agenda;
+    empty.agenda
+  ) as typeof empty.agenda;
 
-  const dailyReport: typeof demo.dailyReport = reportData
+  const dailyReport: typeof empty.dailyReport = reportData
     ? {
         date: new Date(reportData.report_date).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }),
         summary: reportData.summary || "", food: reportData.food || "", hydration: reportData.hydration || "",
         rest: reportData.rest || "", social: reportData.social || "", mood: reportData.mood || "",
         occurrences: reportData.occurrences || "", responsible: reportData.responsible || ""
       }
-    : demo.dailyReport;
+    : empty.dailyReport;
 
   const achievements = nonEmpty(
-    (achievementRows.data || []).map((a) => ({ icon: a.icon || "🏅", title: a.title, desc: a.description || "", earned: a.earned })),
-    demo.achievements
+    (achievementRows.data || []).map((a) => ({ icon: a.icon || "ðŸ…", title: a.title, desc: a.description || "", earned: a.earned })),
+    empty.achievements
   );
 
   const lifeTimeline = nonEmpty(
-    (lifeRows.data || []).map((l) => ({ icon: l.icon || "🐾", title: l.title, date: l.moment_date || "", desc: l.description || "" })),
-    demo.lifeTimeline
+    (lifeRows.data || []).map((l) => ({ icon: l.icon || "ðŸ¾", title: l.title, date: l.moment_date || "", desc: l.description || "" })),
+    empty.lifeTimeline
   );
 
   const weightHistory = nonEmpty(
     (weightRows.data || []).map((w) => ({ label: w.label, value: Number(w.weight) })),
-    demo.weightHistory
+    empty.weightHistory
   );
 
   const aiInsights = nonEmpty(
     (insightRows.data || []).map((a) => ({ period: a.period, text: a.body })),
-    demo.aiInsights
+    empty.aiInsights
   );
 
   const dashboardAvisos = nonEmpty(
-    (announceRows.data || []).map((a) => ({ icon: a.icon || "📢", title: a.title, text: a.body || "", date: fmtDate(a.published_at) })),
-    demo.dashboardAvisos
+    (announceRows.data || []).map((a) => ({ icon: a.icon || "ðŸ“¢", title: a.title, text: a.body || "", date: fmtDate(a.published_at) })),
+    empty.dashboardAvisos
   );
 
   // Indicadores: enriquecidos com dados reais quando disponiveis.
-  const indicators = demo.indicators.map((ind) => {
+  const indicators = empty.indicators.map((ind) => {
     if (ind.label === "Peso atual") return { ...ind, value: pet.weight };
     if (ind.label === "Fotos no album" && photos.length) return { ...ind, value: String(photos.length) };
     if (ind.label === "Videos no album" && videos.length) return { ...ind, value: String(videos.length) };
@@ -322,13 +320,14 @@ export async function getTutorData(): Promise<TutorData> {
   });
 
   return {
-    demoMode: false, tutor, pet, petStatus, health, personality, timeline, photos, videos,
-    vaccines, financial, messages, quickReplies: demo.quickReplies, notifications, agenda,
-    nextReservation: agenda[0] ?? demo.nextReservation, dailyReport, achievements, lifeTimeline,
+    tutor, pet, petStatus, health, personality, timeline, photos, videos,
+    vaccines, financial, messages, quickReplies: empty.quickReplies, notifications, agenda,
+    nextReservation: agenda[0] ?? empty.nextReservation, dailyReport, achievements, lifeTimeline,
     indicators, weightHistory, aiInsights, dashboardAvisos
   };
   } catch (error) {
-    console.error("getTutorData: Supabase indisponivel, usando dados demo.", error);
-    return demoBundle(true);
+    console.error("getTutorData: Supabase indisponivel.", error);
+    return emptyBundle();
   }
 }
+

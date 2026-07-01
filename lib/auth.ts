@@ -162,25 +162,13 @@ export async function updateUser(id: number, payload: Partial<Pick<AppUser, "nam
   return data;
 }
 
-const fallbackTutor = {
-  id: 2,
-  name: "Mariana Alves",
-  email: "mariana@email.com",
-  role: "tutor" as const,
-  is_active: true,
-  tutor_id: null as number | null,
-  created_at: new Date().toISOString()
-};
-
 export type TutorAccount = AppUser & { tutor_id: number | null };
 
 export async function verifyTutorCredentials(email: string, password: string): Promise<TutorAccount | null> {
   const normalizedEmail = normalizeEmail(email);
 
   if (!hasSupabaseEnv()) {
-    const fallbackPassword = process.env.TUTOR_PASSWORD;
-    if (!fallbackPassword) return fallbackTutor; // modo demo: libera o tutor de exemplo
-    return normalizedEmail === fallbackTutor.email && password === fallbackPassword ? fallbackTutor : null;
+    return null;
   }
 
   const supabase = getSupabaseAdmin();
@@ -211,7 +199,7 @@ export async function getTutorByEmail(email: string): Promise<TutorAccount | nul
   const normalizedEmail = normalizeEmail(email);
 
   if (!hasSupabaseEnv()) {
-    return normalizedEmail === fallbackTutor.email ? fallbackTutor : null;
+    return null;
   }
 
   const supabase = getSupabaseAdmin();

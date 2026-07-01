@@ -4,14 +4,19 @@ import { getTutorData } from "@/lib/tutor-data";
 
 const statusCls: Record<string, string> = { Confirmada: "green", Aguardando: "yellow", Concluida: "muted" };
 
-// Mini calendario estatico de Junho/2026 (demo) destacando os dias com reserva.
-const reservedDays = [26, 27, 28];
 const weekDays = ["D", "S", "T", "Q", "Q", "S", "S"];
-const firstWeekday = 1; // 01/06/2026 cai numa segunda
-const daysInMonth = 30;
 
 export default async function AgendaPage() {
   const { agenda } = await getTutorData();
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = today.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const reservedDays = agenda
+    .map((item) => Number(item.date.split("/")[0]))
+    .filter((day) => Number.isFinite(day));
   const cells: (number | null)[] = [
     ...Array(firstWeekday).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1)
@@ -30,7 +35,7 @@ export default async function AgendaPage() {
 
         <div className="tutor-agenda-grid">
           <div className="tutor-calendar">
-            <header><strong>Junho 2026</strong></header>
+            <header><strong>{monthLabel}</strong></header>
             <div className="tutor-calendar-week">{weekDays.map((d, i) => <span key={i}>{d}</span>)}</div>
             <div className="tutor-calendar-days">
               {cells.map((day, i) => (
@@ -59,6 +64,7 @@ export default async function AgendaPage() {
                 </div>
               </article>
             ))}
+            {agenda.length === 0 ? <p className="tutor-empty">Nenhuma reserva cadastrada ainda.</p> : null}
           </div>
         </div>
       </section>

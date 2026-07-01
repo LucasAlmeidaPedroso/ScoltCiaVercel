@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -7,7 +7,7 @@ import {
   Award, Bell, CalendarDays, FileText, Home, Image as ImageIcon, LayoutDashboard,
   LogOut, Menu, MessageCircle, PawPrint, Settings, Syringe, Wallet, X
 } from "lucide-react";
-import { notifications as demoNotifications, pet as demoPet, petStatus as demoPetStatus, tutor as demoTutor } from "@/lib/tutor-demo";
+import { notifications as emptyNotifications, pet as emptyPet, petStatus as emptyPetStatus, tutor as emptyTutor } from "@/lib/tutor-empty";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { TutorLogin } from "@/components/tutor/TutorLogin";
 
@@ -19,10 +19,10 @@ type TutorContext = {
 };
 
 const defaultContext: TutorContext = {
-  pet: { name: demoPet.name, photo: demoPet.photo },
-  petStatus: demoPetStatus,
-  notifications: demoNotifications,
-  avatar: demoTutor.avatar
+  pet: { name: emptyPet.name, photo: emptyPet.photo },
+  petStatus: emptyPetStatus,
+  notifications: emptyNotifications,
+  avatar: emptyTutor.avatar
 };
 
 const nav = [
@@ -50,7 +50,7 @@ export default function TutorLayout({ children }: { children: React.ReactNode })
   const { notifications, pet, petStatus, avatar } = ctx;
   const unread = notifications.filter((n) => !n.read).length;
   const current = nav.find((item) => item.href === pathname);
-  const firstName = user?.name?.split(" ")[0] || demoTutor.firstName;
+  const firstName = user?.name?.split(" ")[0] || emptyTutor.firstName;
 
   function loadContext() {
     fetch("/api/tutor/context")
@@ -65,7 +65,7 @@ export default function TutorLayout({ children }: { children: React.ReactNode })
       .then((r) => r.json())
       .then((data) => {
         if (!active) return;
-        if (data.demoMode || data.user) {
+        if (data.user) {
           setUser(data.user ?? null);
           setAuthState("in");
           loadContext();
@@ -109,7 +109,7 @@ export default function TutorLayout({ children }: { children: React.ReactNode })
           <div>
             <strong>{pet.name}</strong>
             <span className={petStatus.present ? "online" : ""}>
-              {petStatus.present ? `Na creche · ${petStatus.location}` : "Em casa"}
+              {petStatus.present ? `Na creche Â· ${petStatus.location}` : "Em casa"}
             </span>
           </div>
         </div>
@@ -147,7 +147,7 @@ export default function TutorLayout({ children }: { children: React.ReactNode })
 
           <div className="tutor-topbar-title">
             <span className="tutor-topbar-eyebrow"><PawPrint size={14} /> {current?.label || "Area do Tutor"}</span>
-            <h1>Ola, {firstName}! 👋</h1>
+            <h1>Ola, {firstName}! ðŸ‘‹</h1>
           </div>
 
           <div className="tutor-topbar-actions">
@@ -182,3 +182,4 @@ export default function TutorLayout({ children }: { children: React.ReactNode })
     </div>
   );
 }
+

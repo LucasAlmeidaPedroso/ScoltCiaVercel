@@ -31,7 +31,7 @@ ADMIN_SESSION_SECRET=...
 TUTOR_SESSION_SECRET=...
 ```
 
-Sem Supabase configurado, o projeto usa dados demo apenas em desenvolvimento local.
+Sem Supabase configurado, o painel fica sem dados operacionais ate que informacoes reais sejam cadastradas.
 
 ## Deploy na Vercel
 

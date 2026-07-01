@@ -1824,7 +1824,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
               </div>
               <div className="reservation-detail-section">
                 <h3>Informacoes da reserva</h3>
-                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)} as {detail.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Vila Mariana</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)} Premium</dd><dt>Valor total</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Pago</dd></dl>
+                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)} as {detail.expected_time || "--:--"}</dd><dt>Unidade</dt><dd>Scolt&amp;Cia</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)}</dd><dt>Valor estimado</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Nao informado</dd></dl>
               </div>
               <div className="reservation-detail-section">
                 <h3>Observacoes</h3>

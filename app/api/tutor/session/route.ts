@@ -5,12 +5,8 @@ import { hasSupabaseEnv } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  // Sem Supabase configurado: modo demo, libera a area com o tutor de exemplo.
   if (!hasSupabaseEnv()) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ user: null }, { status: 200 });
-    }
-    return NextResponse.json({ demoMode: true, user: { name: "Mariana Alves", email: "mariana@email.com" } });
+    return NextResponse.json({ user: null }, { status: 200 });
   }
 
   const tutor = await requireTutor(request);

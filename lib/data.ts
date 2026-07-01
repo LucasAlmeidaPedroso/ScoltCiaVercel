@@ -1,9 +1,8 @@
-import { demoPets, demoReservations } from "./demo-data";
 import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
 import type { AdminRecord, AdminRecordPayload, DaycareSettings, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload } from "./types";
 
 export async function listPets(): Promise<PetOption[]> {
-  if (!hasSupabaseEnv()) return demoPets;
+  if (!hasSupabaseEnv()) return [];
 
   try {
     const supabase = getSupabaseAdmin();
@@ -15,13 +14,13 @@ export async function listPets(): Promise<PetOption[]> {
     if (error) throw error;
     return data ?? [];
   } catch (error) {
-    console.error("listPets: Supabase indisponivel, usando dados demo.", error);
-    return demoPets;
+    console.error("listPets: Supabase indisponivel.", error);
+    return [];
   }
 }
 
 export async function listReservations(): Promise<Reservation[]> {
-  if (!hasSupabaseEnv()) return demoReservations;
+  if (!hasSupabaseEnv()) return [];
 
   try {
     const supabase = getSupabaseAdmin();
@@ -33,8 +32,8 @@ export async function listReservations(): Promise<Reservation[]> {
     if (error) throw error;
     return data ?? [];
   } catch (error) {
-    console.error("listReservations: Supabase indisponivel, usando dados demo.", error);
-    return demoReservations;
+    console.error("listReservations: Supabase indisponivel.", error);
+    return [];
   }
 }
 

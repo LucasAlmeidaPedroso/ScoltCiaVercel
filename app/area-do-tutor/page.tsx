@@ -10,6 +10,7 @@ export default async function TutorDashboard() {
   const { aiInsights, dashboardAvisos, financial, indicators, nextReservation, petStatus, pet, photos, vaccines } = await getTutorData();
   const lastPhoto = photos[0];
   const upcomingVaccines = vaccines.filter((v) => v.status !== "em-dia").slice(0, 3);
+  const petName = pet.name || "Pet nao cadastrado";
 
   return (
     <div className="tutor-page">
@@ -18,9 +19,9 @@ export default async function TutorDashboard() {
         <article className="tutor-card tutor-card-status">
           <header><span className="tutor-card-tag"><PawPrint size={15} /> Status agora</span></header>
           <div className="tutor-status-body">
-            <img src={pet.photo} alt={pet.name} />
+            <img src={pet.photo} alt={petName} />
             <div>
-              <strong>{pet.name}</strong>
+              <strong>{petName}</strong>
               {petStatus.present ? (
                 <>
                   <p className="tutor-status-line"><span className="dot-pulse" /> Na creche · {petStatus.location}</p>
@@ -30,7 +31,7 @@ export default async function TutorDashboard() {
               ) : (
                 <>
                   <p className="tutor-status-line">🏠 Em casa</p>
-                  <small><Clock size={13} /> Ultima visita: {petStatus.lastVisit}</small>
+                  <small><Clock size={13} /> {petStatus.lastVisit ? `Ultima visita: ${petStatus.lastVisit}` : "Sem presenca registrada"}</small>
                 </>
               )}
             </div>
@@ -56,9 +57,11 @@ export default async function TutorDashboard() {
         {/* Card 3 - Ultima Foto */}
         <article className="tutor-card tutor-card-photo">
           <header><span className="tutor-card-tag tag-pink"><Camera size={15} /> Ultima foto</span></header>
-          <div className="tutor-last-photo" style={{ backgroundImage: `url(${lastPhoto.src})` }}>
-            <span>{lastPhoto.caption}</span>
-          </div>
+          {lastPhoto ? (
+            <div className="tutor-last-photo" style={{ backgroundImage: `url(${lastPhoto.src})` }}>
+              <span>{lastPhoto.caption}</span>
+            </div>
+          ) : <p className="tutor-empty">Nenhuma foto cadastrada ainda.</p>}
           <Link href="/area-do-tutor/fotos" className="tutor-card-link">Ver galeria <ArrowRight size={15} /></Link>
         </article>
 
@@ -72,7 +75,7 @@ export default async function TutorDashboard() {
                 <span>{v.name}</span>
                 <small>{v.valid}</small>
               </li>
-            )) : <li className="ok"><span className="tutor-dot green" /> Tudo em dia!</li>}
+            )) : <li className="ok"><span className="tutor-dot green" /> Nenhuma vacina cadastrada.</li>}
           </ul>
           <Link href="/area-do-tutor/vacinas" className="tutor-card-link">Ver vacinas <ArrowRight size={15} /></Link>
         </article>
@@ -83,7 +86,7 @@ export default async function TutorDashboard() {
           <div className="tutor-fin-mini">
             <div><small>Mensalidade</small><strong>R$ {financial.monthlyValue}</strong></div>
             <div><small>Pacotes restantes</small><strong>{financial.packagesLeft}/{financial.packageTotal}</strong></div>
-            <div><small>Proximo vencimento</small><strong>{financial.nextDue}</strong></div>
+            <div><small>Proximo vencimento</small><strong>{financial.nextDue || "Nao informado"}</strong></div>
           </div>
           <Link href="/area-do-tutor/financeiro" className="tutor-card-link">Ver financeiro <ArrowRight size={15} /></Link>
         </article>
@@ -98,6 +101,7 @@ export default async function TutorDashboard() {
                 <div><strong>{a.title}</strong><p>{a.text}</p><small>{a.date}</small></div>
               </li>
             ))}
+            {dashboardAvisos.length === 0 ? <li><div><strong>Nenhum aviso cadastrado.</strong><p>Os comunicados reais aparecerao aqui.</p></div></li> : null}
           </ul>
         </article>
       </section>
@@ -106,7 +110,7 @@ export default async function TutorDashboard() {
       <section className="tutor-ai-strip">
         <div className="tutor-ai-head">
           <Sparkles size={20} />
-          <div><strong>Insights da IA</strong><span>Gerados a partir da rotina do {pet.name}</span></div>
+          <div><strong>Insights da IA</strong><span>{pet.name ? `Gerados a partir da rotina do ${pet.name}` : "Sem dados suficientes para gerar insights"}</span></div>
         </div>
         <div className="tutor-ai-cards">
           {aiInsights.slice(0, 3).map((insight, i) => (
@@ -115,6 +119,7 @@ export default async function TutorDashboard() {
               <p>{insight.text}</p>
             </article>
           ))}
+          {aiInsights.length === 0 ? <article><p>Nenhum insight cadastrado ainda.</p></article> : null}
         </div>
       </section>
 

@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { Activity, Download, Droplets, Moon, Smile, Users, Utensils } from "lucide-react";
-import type { dailyReport as DailyReport } from "@/lib/tutor-demo";
+import type { dailyReport as DailyReport } from "@/lib/tutor-empty";
 
 type Report = typeof DailyReport;
 
@@ -20,8 +20,8 @@ export function RelatoriosView({ report, petName, petPhoto }: { report: Report; 
       <section className="tutor-section">
         <div className="tutor-timeline-head">
           <div>
-            <h3 className="tutor-section-title">📋 Relatorio diario</h3>
-            <p className="tutor-section-sub">Gerado automaticamente ao final do dia · {report.date}</p>
+            <h3 className="tutor-section-title">ðŸ“‹ Relatorio diario</h3>
+            <p className="tutor-section-sub">Gerado automaticamente ao final do dia Â· {report.date}</p>
           </div>
           <button className="tutor-primary-btn" onClick={() => window.print()}><Download size={16} /> Baixar PDF</button>
         </div>
@@ -49,10 +49,11 @@ export function RelatoriosView({ report, petName, petPhoto }: { report: Report; 
 
           <footer className="tutor-report-foot">
             <span>Responsavel: <strong>{report.responsible}</strong></span>
-            <span>Scolt &amp; Cia Daycare 🐾</span>
+            <span>Scolt &amp; Cia Daycare ðŸ¾</span>
           </footer>
         </article>
       </section>
     </div>
   );
 }
+

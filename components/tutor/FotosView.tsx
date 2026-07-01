@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { Clock, Facebook, Heart, Instagram, MapPin, Play, Share2, UserRound } from "lucide-react";
-import type { Photo, Video } from "@/lib/tutor-demo";
+import type { Photo, Video } from "@/lib/tutor-empty";
 
 const periods = ["Hoje", "Esta semana", "Este mes", "Todas"] as const;
 type Period = (typeof periods)[number];
@@ -30,7 +30,7 @@ export function FotosView({ photos: allPhotos, videos }: { photos: Photo[]; vide
       <section className="tutor-section">
         <div className="tutor-timeline-head">
           <div>
-            <h3 className="tutor-section-title">📸 Album do pet</h3>
+            <h3 className="tutor-section-title">ðŸ“¸ Album do pet</h3>
             <p className="tutor-section-sub">Momentos registrados pela equipe ao longo dos dias.</p>
           </div>
           <div className="tutor-tabs">
@@ -77,7 +77,7 @@ export function FotosView({ photos: allPhotos, videos }: { photos: Photo[]; vide
                 })}
               </div>
             ) : (
-              <p className="tutor-empty">Nenhuma foto neste filtro ainda 🐾</p>
+              <p className="tutor-empty">Nenhuma foto neste filtro ainda ðŸ¾</p>
             )}
           </>
         ) : (
@@ -112,3 +112,4 @@ export function FotosView({ photos: allPhotos, videos }: { photos: Photo[]; vide
     </div>
   );
 }
+

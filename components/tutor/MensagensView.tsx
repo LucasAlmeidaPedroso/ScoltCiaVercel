@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ImagePlus, Paperclip, PawPrint, Send } from "lucide-react";
-import type { Message } from "@/lib/tutor-demo";
+import type { Message } from "@/lib/tutor-empty";
 
 export function MensagensView({ messages: seed, quickReplies }: { messages: Message[]; quickReplies: string[] }) {
   const [list, setList] = useState<Message[]>(seed);
@@ -38,7 +38,7 @@ export function MensagensView({ messages: seed, quickReplies }: { messages: Mess
           <div className="tutor-chat-avatar"><PawPrint size={20} /></div>
           <div>
             <strong>Equipe Scolt &amp; Cia</strong>
-            <small><span className="dot-pulse" /> Online · conversa sobre o seu pet</small>
+            <small><span className="dot-pulse" /> Online Â· conversa sobre o seu pet</small>
           </div>
         </div>
 
@@ -70,3 +70,4 @@ export function MensagensView({ messages: seed, quickReplies }: { messages: Mess
     </div>
   );
 }
+

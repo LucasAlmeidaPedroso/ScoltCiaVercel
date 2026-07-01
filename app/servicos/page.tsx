@@ -32,7 +32,7 @@ const services = [
     title: "Relatorio Diario",
     text: "Acompanhe cada momento do dia do seu pet.",
     bullets: ["Fotos e videos", "Alimentacao", "Atividades realizadas", "Comportamento e humor"],
-    action: "Ver exemplo",
+    action: "Ver servico",
     className: "services-card-pink"
   }
 ];

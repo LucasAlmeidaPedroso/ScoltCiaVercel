@@ -11,10 +11,7 @@ export async function POST(request: Request) {
   }
 
   if (!hasSupabaseEnv()) {
-    if (process.env.NODE_ENV === "production") {
-      return NextResponse.json({ error: "Servico indisponivel" }, { status: 503 });
-    }
-    return NextResponse.json({ ok: true, demoMode: true });
+    return NextResponse.json({ error: "Servico indisponivel" }, { status: 503 });
   }
 
   const tutor = await requireTutor(request);

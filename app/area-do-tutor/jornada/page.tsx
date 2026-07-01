@@ -1,19 +1,19 @@
-import { Sparkles, TrendingUp } from "lucide-react";
+import { Award, Heart, Scale, Sparkles, TrendingUp } from "lucide-react";
 import { getTutorData } from "@/lib/tutor-data";
 
 export default async function JornadaPage() {
   const { achievements, aiInsights, indicators, lifeTimeline, pet, weightHistory } = await getTutorData();
   const earned = achievements.filter((a) => a.earned).length;
-  const maxW = Math.max(...weightHistory.map((w) => w.value));
-  const minW = Math.min(...weightHistory.map((w) => w.value));
+  const maxW = weightHistory.length ? Math.max(...weightHistory.map((w) => w.value)) : 0;
+  const minW = weightHistory.length ? Math.min(...weightHistory.map((w) => w.value)) : 0;
+  const petName = pet.name || "pet";
 
   return (
     <div className="tutor-page">
-      {/* Conquistas */}
       <section className="tutor-section">
         <div className="tutor-timeline-head">
           <div>
-            <h3 className="tutor-section-title">🏅 Conquistas do {pet.name}</h3>
+            <h3 className="tutor-section-title"><Award size={20} /> Conquistas do {petName}</h3>
             <p className="tutor-section-sub">{earned} de {achievements.length} medalhas conquistadas.</p>
           </div>
         </div>
@@ -26,13 +26,13 @@ export default async function JornadaPage() {
               {!a.earned ? <span className="tutor-medal-lock">Em progresso</span> : null}
             </article>
           ))}
+          {achievements.length === 0 ? <p className="tutor-empty">Nenhuma conquista cadastrada ainda.</p> : null}
         </div>
       </section>
 
-      {/* Linha do tempo da vida */}
       <section className="tutor-section">
-        <h3 className="tutor-section-title">💛 Linha do tempo da vida</h3>
-        <p className="tutor-section-sub">Os momentos marcantes do {pet.name} na Scolt &amp; Cia.</p>
+        <h3 className="tutor-section-title"><Heart size={20} /> Linha do tempo da vida</h3>
+        <p className="tutor-section-sub">Os momentos marcantes do {petName} na Scolt &amp; Cia.</p>
         <div className="tutor-life">
           {lifeTimeline.map((m, i) => (
             <article key={i} className="tutor-life-item">
@@ -44,10 +44,10 @@ export default async function JornadaPage() {
               </div>
             </article>
           ))}
+          {lifeTimeline.length === 0 ? <p className="tutor-empty">Nenhum momento cadastrado ainda.</p> : null}
         </div>
       </section>
 
-      {/* Indicadores */}
       <section className="tutor-section">
         <h3 className="tutor-section-title"><TrendingUp size={20} /> Indicadores do tutor</h3>
         <div className="tutor-indicators-grid">
@@ -61,10 +61,9 @@ export default async function JornadaPage() {
         </div>
       </section>
 
-      {/* Peso + IA */}
       <section className="tutor-jornada-bottom">
         <div className="tutor-section tutor-weight">
-          <h3 className="tutor-section-title">⚖️ Historico de peso</h3>
+          <h3 className="tutor-section-title"><Scale size={20} /> Historico de peso</h3>
           <div className="tutor-chart">
             {weightHistory.map((w) => {
               const h = 30 + ((w.value - minW) / (maxW - minW || 1)) * 70;
@@ -76,6 +75,7 @@ export default async function JornadaPage() {
                 </div>
               );
             })}
+            {weightHistory.length === 0 ? <p className="tutor-empty">Nenhum peso cadastrado ainda.</p> : null}
           </div>
         </div>
 
@@ -88,6 +88,7 @@ export default async function JornadaPage() {
                 <p>{insight.text}</p>
               </article>
             ))}
+            {aiInsights.length === 0 ? <p className="tutor-empty">Nenhum resumo cadastrado ainda.</p> : null}
           </div>
         </div>
       </section>

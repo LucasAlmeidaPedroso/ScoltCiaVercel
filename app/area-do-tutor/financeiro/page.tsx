@@ -6,7 +6,7 @@ const statusCls: Record<string, string> = { Pago: "green", Pendente: "yellow", A
 
 export default async function FinanceiroPage() {
   const { financial } = await getTutorData();
-  const pkgPct = Math.round((financial.packagesLeft / financial.packageTotal) * 100);
+  const pkgPct = financial.packageTotal > 0 ? Math.round((financial.packagesLeft / financial.packageTotal) * 100) : 0;
 
   return (
     <div className="tutor-page">
@@ -26,7 +26,7 @@ export default async function FinanceiroPage() {
         <article className="tutor-fin-highlight yellow">
           <Receipt size={26} />
           <small>Proximo vencimento</small>
-          <strong>{financial.nextDue}</strong>
+          <strong>{financial.nextDue || "Nao informado"}</strong>
           <span>Pague via PIX, cartao ou boleto</span>
         </article>
       </section>
@@ -52,6 +52,9 @@ export default async function FinanceiroPage() {
                   </tr>
                 );
               })}
+              {financial.invoices.length === 0 ? (
+                <tr><td colSpan={6}>Nenhum pagamento cadastrado ainda.</td></tr>
+              ) : null}
             </tbody>
           </table>
         </div>
