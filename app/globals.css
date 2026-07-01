@@ -527,6 +527,86 @@ textarea { resize: vertical; }
 .compact-form button {
   justify-content: center;
 }
+.user-permission-form {
+  display: grid;
+  gap: 18px;
+  margin: 18px 0 24px;
+}
+.user-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.permission-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid #e7eef7;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+.entity-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.entity-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  background: #fff;
+  color: #173054;
+  font-weight: 900;
+}
+.entity-checks.compact label {
+  min-height: 36px;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.permission-grid.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.permission-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 128px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #edf1f7;
+  border-radius: 12px;
+  background: #fff;
+}
+.permission-item span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.permission-item b,
+.permission-item small {
+  overflow-wrap: anywhere;
+}
+.permission-item small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.permission-item select,
+.user-form-grid select,
+.user-form-grid input {
+  min-height: 44px;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  padding: 0 12px;
+  background: #fff;
+  color: #173054;
+  font-weight: 800;
+}
 .reservation-row {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -2865,6 +2945,12 @@ body:has(.admin-app-route) .site-footer {
   color: #ed4f91 !important;
 }
 .user-admin-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 12px;
+}
+.user-admin-head {
   display: grid;
   grid-template-columns: 1fr 150px 120px;
   align-items: center;
@@ -5996,7 +6082,9 @@ body:has(.admin-app-route) .site-footer {
     font-size: 11px;
   }
   .brand span { display: none; }
-  .service-grid, .form-grid, .compact-form { grid-template-columns: 1fr; }
+  .service-grid, .form-grid, .compact-form, .user-form-grid, .permission-grid, .permission-grid.compact, .user-admin-head { grid-template-columns: 1fr; }
+  .permission-item { grid-template-columns: 1fr; }
+  .permission-item select { width: 100%; }
   .span-2 { grid-column: auto; }
   .hero { padding-top: 42px; }
   h1 { font-size: 54px; }

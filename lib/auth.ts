@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { getSupabaseAdmin, hasSupabaseEnv } from "./supabase";
-import type { AppUser, UserPayload } from "./types";
+import type { AppUser, BusinessEntity, PermissionKey, PermissionLevel, UserPayload, UserPermissions } from "./types";
 
 const fallbackAdmin = {
   id: 1,
@@ -8,8 +8,86 @@ const fallbackAdmin = {
   email: "lucasalmeidapedroso@gmail.com",
   role: "admin" as const,
   is_active: true,
+  entities: ["creche", "hotel"] as BusinessEntity[],
+  permissions: null,
   created_at: new Date().toISOString()
 };
+
+const permissionKeys: PermissionKey[] = [
+  "dashboard",
+  "reservations",
+  "agenda",
+  "checkin",
+  "pets",
+  "clients",
+  "services",
+  "packages",
+  "daily_reports",
+  "activities",
+  "feeding",
+  "grooming",
+  "reports",
+  "users",
+  "settings"
+];
+
+const permissionLevels: PermissionLevel[] = ["none", "read", "write"];
+
+const defaultEmployeePermissions: UserPermissions = {
+  dashboard: "read",
+  reservations: "write",
+  agenda: "write",
+  checkin: "write",
+  pets: "read",
+  clients: "read",
+  services: "read",
+  packages: "read",
+  daily_reports: "write",
+  activities: "write",
+  feeding: "write",
+  grooming: "write",
+  reports: "read",
+  users: "none",
+  settings: "none"
+};
+
+function normalizeEntities(value: unknown): BusinessEntity[] {
+  const source = Array.isArray(value) ? value : ["creche"];
+  const entities = source.filter((item): item is BusinessEntity => item === "creche" || item === "hotel");
+  return entities.length ? Array.from(new Set(entities)) : ["creche"];
+}
+
+function normalizePermissions(value: unknown, role: AppUser["role"]): UserPermissions | null {
+  if (role === "admin") return null;
+  const source = typeof value === "object" && value ? value as Record<string, unknown> : defaultEmployeePermissions;
+  return Object.fromEntries(permissionKeys.map((key) => {
+    const level = source[key];
+    return [key, permissionLevels.includes(level as PermissionLevel) ? level : defaultEmployeePermissions[key] || "none"];
+  })) as UserPermissions;
+}
+
+export function hasPermission(user: AppUser, key: PermissionKey, level: PermissionLevel = "read") {
+  if (user.role === "admin") return true;
+  if (user.role !== "equipe") return false;
+
+  const current = normalizePermissions(user.permissions, user.role)?.[key] || "none";
+  if (level === "read") return current === "read" || current === "write";
+  if (level === "write") return current === "write";
+  return current !== "none";
+}
+
+function mapAppUser(data: Record<string, any>): AppUser {
+  return {
+    id: Number(data.id),
+    name: data.name,
+    email: data.email,
+    role: data.role,
+    is_active: data.is_active,
+    entities: normalizeEntities(data.entities),
+    permissions: normalizePermissions(data.permissions, data.role),
+    created_at: data.created_at
+  };
+}
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
@@ -46,19 +124,12 @@ export async function verifyAdminCredentials(email: string, password: string) {
     .eq("is_active", true)
     .single();
 
-  if (error || !data || data.role !== "admin") return null;
+  if (error || !data || !["admin", "equipe"].includes(data.role)) return null;
 
   const attemptedHash = hashPassword(password, data.password_salt);
   if (!safeEqual(attemptedHash, data.password_hash)) return null;
 
-  return {
-    id: data.id,
-    name: data.name,
-    email: data.email,
-    role: data.role,
-    is_active: data.is_active,
-    created_at: data.created_at
-  } satisfies AppUser;
+  return mapAppUser(data);
 }
 
 export async function verifyAdminEmail(email: string) {
@@ -71,13 +142,13 @@ export async function verifyAdminEmail(email: string) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("app_users")
-    .select("id,name,email,role,is_active,created_at")
+    .select("id,name,email,role,is_active,entities,permissions,created_at")
     .eq("email", normalizedEmail)
     .eq("is_active", true)
     .single();
 
-  if (error || !data || data.role !== "admin") return null;
-  return data satisfies AppUser;
+  if (error || !data || !["admin", "equipe"].includes(data.role)) return null;
+  return mapAppUser(data);
 }
 
 export async function verifyAdminAccessToken(accessToken: string) {
@@ -97,11 +168,11 @@ export async function listUsers(): Promise<AppUser[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("app_users")
-    .select("id,name,email,role,is_active,created_at")
+    .select("id,name,email,role,is_active,entities,permissions,created_at")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(mapAppUser);
 }
 
 export async function createUser(payload: UserPayload): Promise<AppUser> {
@@ -116,6 +187,8 @@ export async function createUser(payload: UserPayload): Promise<AppUser> {
       email,
       role: payload.role,
       is_active: true,
+      entities: normalizeEntities(payload.entities),
+      permissions: normalizePermissions(payload.permissions, payload.role),
       created_at: new Date().toISOString()
     };
   }
@@ -127,25 +200,35 @@ export async function createUser(payload: UserPayload): Promise<AppUser> {
       name: payload.name,
       email,
       role: payload.role,
+      entities: normalizeEntities(payload.entities),
+      permissions: normalizePermissions(payload.permissions, payload.role),
       password_salt: salt,
       password_hash,
       is_active: true
     })
-    .select("id,name,email,role,is_active,created_at")
+    .select("id,name,email,role,is_active,entities,permissions,created_at")
     .single();
 
   if (error) throw error;
-  return data;
+  return mapAppUser(data);
 }
 
-export async function updateUser(id: number, payload: Partial<Pick<AppUser, "name" | "role" | "is_active">>): Promise<AppUser> {
+export async function updateUser(id: number, payload: Partial<Pick<AppUser, "name" | "role" | "is_active" | "entities" | "permissions">>): Promise<AppUser> {
+  const cleanPayload = {
+    ...payload,
+    entities: payload.entities ? normalizeEntities(payload.entities) : undefined,
+    permissions: payload.permissions || payload.role ? normalizePermissions(payload.permissions, payload.role || "equipe") : undefined
+  };
+
   if (!hasSupabaseEnv()) {
     return {
       id,
-      name: payload.name || fallbackAdmin.name,
+      name: cleanPayload.name || fallbackAdmin.name,
       email: fallbackAdmin.email,
-      role: payload.role || fallbackAdmin.role,
-      is_active: payload.is_active ?? fallbackAdmin.is_active,
+      role: cleanPayload.role || fallbackAdmin.role,
+      is_active: cleanPayload.is_active ?? fallbackAdmin.is_active,
+      entities: cleanPayload.entities || fallbackAdmin.entities,
+      permissions: cleanPayload.permissions || fallbackAdmin.permissions,
       created_at: fallbackAdmin.created_at
     };
   }
@@ -153,13 +236,13 @@ export async function updateUser(id: number, payload: Partial<Pick<AppUser, "nam
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("app_users")
-    .update(payload)
+    .update(Object.fromEntries(Object.entries(cleanPayload).filter(([, value]) => value !== undefined)))
     .eq("id", id)
-    .select("id,name,email,role,is_active,created_at")
+    .select("id,name,email,role,is_active,entities,permissions,created_at")
     .single();
 
   if (error) throw error;
-  return data;
+  return mapAppUser(data);
 }
 
 export type TutorAccount = AppUser & { tutor_id: number | null };

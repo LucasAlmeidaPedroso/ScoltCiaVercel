@@ -24,6 +24,8 @@ const { error } = await supabase
     name,
     email,
     role: "admin",
+    entities: ["creche", "hotel"],
+    permissions: null,
     password_salt: salt,
     password_hash,
     is_active: true

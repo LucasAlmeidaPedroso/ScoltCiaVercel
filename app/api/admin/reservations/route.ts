@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { hasPermission, requireAdmin } from "@/lib/auth";
 import { createReservation, updateReservation } from "@/lib/data";
 
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  if (!hasPermission(admin, "reservations", "write")) return NextResponse.json({ error: "Permissao insuficiente" }, { status: 403 });
 
   const payload = await request.json();
   const reservation = await createReservation(payload, "Confirmada");
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  if (!hasPermission(admin, "reservations", "write")) return NextResponse.json({ error: "Permissao insuficiente" }, { status: 403 });
 
   const { id, ...payload } = await request.json();
   if (!id) return NextResponse.json({ error: "Reserva nao informada" }, { status: 400 });

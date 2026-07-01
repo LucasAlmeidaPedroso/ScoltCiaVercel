@@ -58,12 +58,37 @@ export type Reservation = ReservationPayload & {
   created_at: string;
 };
 
+export type PermissionLevel = "none" | "read" | "write";
+
+export type PermissionKey =
+  | "dashboard"
+  | "reservations"
+  | "agenda"
+  | "checkin"
+  | "pets"
+  | "clients"
+  | "services"
+  | "packages"
+  | "daily_reports"
+  | "activities"
+  | "feeding"
+  | "grooming"
+  | "reports"
+  | "users"
+  | "settings";
+
+export type BusinessEntity = "creche" | "hotel";
+
+export type UserPermissions = Partial<Record<PermissionKey, PermissionLevel>>;
+
 export type AppUser = {
   id: number;
   name: string;
   email: string;
   role: "admin" | "equipe" | "tutor";
   is_active: boolean;
+  entities?: BusinessEntity[] | null;
+  permissions?: UserPermissions | null;
   created_at: string;
 };
 
@@ -72,6 +97,8 @@ export type UserPayload = {
   email: string;
   password: string;
   role: "admin" | "equipe" | "tutor";
+  entities?: BusinessEntity[];
+  permissions?: UserPermissions;
 };
 
 export type DaycareSettings = {

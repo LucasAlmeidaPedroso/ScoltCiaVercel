@@ -6,7 +6,7 @@ import type { CSSProperties } from "react";
 import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
-import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload } from "@/lib/types";
+import type { AdminRecord, AdminRecordPayload, AppUser, BusinessEntity, DaycareSettings, PermissionKey, PermissionLevel, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload, UserPermissions } from "@/lib/types";
 
 type Props = {
   pets: PetOption[];
@@ -16,7 +16,7 @@ type Props = {
 
 type AdminModulePageKey = "services" | "packages" | "daily_reports" | "activities" | "feeding" | "schedules" | "unit" | "communications" | "general_settings";
 type AdminPageKey = "dashboard" | "reservations" | "pets" | "clients" | "agenda" | "checkin" | "grooming" | "users" | AdminModulePageKey;
-type BusinessUnit = "creche" | "hotel";
+type BusinessUnit = BusinessEntity;
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -33,6 +33,67 @@ const businessUnits: Array<{ key: BusinessUnit; title: string; shortTitle: strin
   { key: "creche", title: "Creche", shortTitle: "Creche", description: "Day Care, banho, tosa e rotina diaria." },
   { key: "hotel", title: "Hotel", shortTitle: "Hotel", description: "Hospedagem, diarias e pernoites." }
 ];
+
+const permissionLevels: Array<{ value: PermissionLevel; label: string }> = [
+  { value: "none", label: "Sem acesso" },
+  { value: "read", label: "Ver" },
+  { value: "write", label: "Editar" }
+];
+
+const permissionGroups: Array<{ key: PermissionKey; label: string; description: string }> = [
+  { key: "dashboard", label: "Dashboard", description: "Resumo e indicadores" },
+  { key: "reservations", label: "Reservas", description: "Reservas, status e aprovacoes" },
+  { key: "agenda", label: "Agenda", description: "Calendario operacional" },
+  { key: "checkin", label: "Check-in", description: "Entrada e saida dos pets" },
+  { key: "pets", label: "Pets", description: "Cadastro e prontuario dos pets" },
+  { key: "clients", label: "Tutores", description: "Clientes e responsaveis" },
+  { key: "services", label: "Servicos", description: "Servicos da unidade" },
+  { key: "packages", label: "Pacotes", description: "Pacotes comerciais" },
+  { key: "daily_reports", label: "Relatorios diarios", description: "Rotina enviada aos tutores" },
+  { key: "activities", label: "Atividades", description: "Recreacao e atividades" },
+  { key: "feeding", label: "Alimentacao", description: "Refeicoes e restricoes" },
+  { key: "grooming", label: "Banho e Tosa", description: "Agenda de higiene" },
+  { key: "reports", label: "Relatorios", description: "Exportacoes e consultas" },
+  { key: "users", label: "Equipe", description: "Funcionarios e permissoes" },
+  { key: "settings", label: "Configuracoes", description: "Unidade e regras internas" }
+];
+
+const defaultPermissionSet = Object.fromEntries(
+  permissionGroups.map((permission) => [permission.key, permission.key === "users" || permission.key === "settings" ? "none" : "write"])
+) as UserPermissions;
+
+const adminPermissionSet = Object.fromEntries(
+  permissionGroups.map((permission) => [permission.key, "write"])
+) as UserPermissions;
+
+function userPermissionSet(user?: AppUser | null) {
+  if (user?.role === "admin") return adminPermissionSet;
+  return { ...defaultPermissionSet, ...(user?.permissions || {}) };
+}
+
+function canRead(user: AppUser | null, key: PermissionKey) {
+  if (!user) return false;
+  const level = userPermissionSet(user)[key] || "none";
+  return user.role === "admin" || level === "read" || level === "write";
+}
+
+function canWrite(user: AppUser | null, key: PermissionKey) {
+  if (!user) return false;
+  return user.role === "admin" || userPermissionSet(user)[key] === "write";
+}
+
+function canUseUnit(user: AppUser | null, unit: BusinessUnit) {
+  if (!user) return false;
+  return user.role === "admin" || (user.entities || []).includes(unit);
+}
+
+function pagePermission(page: AdminPageKey): PermissionKey {
+  if (page === "schedules" || page === "users") return "users";
+  if (page === "unit" || page === "communications" || page === "general_settings") return "settings";
+  if (page === "grooming") return "grooming";
+  if (page === "services" || page === "packages" || page === "daily_reports" || page === "activities" || page === "feeding") return page;
+  return page;
+}
 
 const servicePrices: Record<string, number> = {
   "Day Care": 85,
@@ -2206,6 +2267,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [remember, setRemember] = useState(true);
   const [unlocked, setUnlocked] = useState(false);
   const [adminName, setAdminName] = useState("Marina");
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [adminPage, setAdminPage] = useState<AdminPageKey>("dashboard");
   const [activeUnit, setActiveUnit] = useState<BusinessUnit>("creche");
   const [reservationInitialStatus, setReservationInitialStatus] = useState("all");
@@ -2219,7 +2281,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [allTutors, setAllTutors] = useState<TutorRecord[]>([]);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [adminRecords, setAdminRecords] = useState<AdminRecord[]>([]);
-  const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe" });
+  const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe", entities: ["creche"], permissions: defaultPermissionSet });
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
@@ -2240,11 +2302,19 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   function goAdminPage(page: AdminPageKey, label: string) {
+    if (currentUser && !canRead(currentUser, pagePermission(page))) {
+      showAdminLoading("Sem permissao para esta area.");
+      return;
+    }
     showAdminLoading(label);
     setAdminPage(page);
   }
 
   function switchBusinessUnit(unit: BusinessUnit) {
+    if (!canUseUnit(currentUser, unit)) {
+      showAdminLoading("Sem permissao para esta entidade.");
+      return;
+    }
     if (unit === activeUnit) return;
     setActiveUnit(unit);
     setReservationInitialStatus("all");
@@ -2262,6 +2332,29 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     };
   }
 
+  function applyLoggedUser(user: AppUser) {
+    setCurrentUser(user);
+    if (user.name) setAdminName(user.name.split(" ")[0]);
+    const firstUnit = businessUnits.find((unit) => canUseUnit(user, unit.key))?.key || "creche";
+    setActiveUnit(firstUnit);
+    if (!canRead(user, pagePermission(adminPage))) setAdminPage("dashboard");
+  }
+
+  function toggleUserFormEntity(entity: BusinessEntity) {
+    setUserForm((current) => {
+      const entities = current.entities || [];
+      const next = entities.includes(entity) ? entities.filter((item) => item !== entity) : [...entities, entity];
+      return { ...current, entities: next.length ? next : [entity] };
+    });
+  }
+
+  function setUserFormPermission(key: PermissionKey, level: PermissionLevel) {
+    setUserForm((current) => ({
+      ...current,
+      permissions: { ...(current.permissions || defaultPermissionSet), [key]: level }
+    }));
+  }
+
   function openReservations(status = "all") {
     goAdminPage("reservations", "Carregando reservas...");
     setReservationInitialStatus(status);
@@ -2269,6 +2362,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   function openUsers() {
+    if (!currentUser || currentUser.role !== "admin") {
+      showAdminLoading("Apenas administradores acessam permissoes.");
+      return;
+    }
     goAdminPage("users", "Carregando equipe...");
   }
 
@@ -2339,14 +2436,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     if (response.ok) {
       setAccessToken(token);
       const loginData = await response.json();
-      if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
-      const usersResponse = await fetch("/api/admin/users", {
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        }
-      });
-      if (usersResponse.ok) setUsers(await usersResponse.json());
+      if (loginData.user) applyLoggedUser(loginData.user);
+      if (loginData.user?.role === "admin") {
+        const usersResponse = await fetch("/api/admin/users", {
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          }
+        });
+        if (usersResponse.ok) setUsers(await usersResponse.json());
+      }
       await loadTutors({
         "Content-Type": "application/json",
         "Authorization": `Bearer ${token}`
@@ -2374,6 +2473,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     });
   }, []);
 
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!canUseUnit(currentUser, activeUnit)) {
+      setActiveUnit(businessUnits.find((unit) => canUseUnit(currentUser, unit.key))?.key || "creche");
+    }
+    if (!canRead(currentUser, pagePermission(adminPage))) {
+      setAdminPage("dashboard");
+    }
+  }, [activeUnit, adminPage, currentUser]);
+
   function countByStatus(status: string) {
     if (status === "all") return operationalItems.length;
     return operationalItems.filter((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente")).length;
@@ -2395,10 +2504,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       if (response.ok) {
         const loginData = await response.json();
-        if (loginData.user?.name) setAdminName(loginData.user.name.split(" ")[0]);
+        if (loginData.user) applyLoggedUser(loginData.user);
         setAccessToken("");
-        const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
-        if (usersResponse.ok) setUsers(await usersResponse.json());
+        if (loginData.user?.role === "admin") {
+          const usersResponse = await fetch("/api/admin/users", { headers: adminHeaders() });
+          if (usersResponse.ok) setUsers(await usersResponse.json());
+        }
         await loadTutors();
         await loadAdminRecords();
       } else {
@@ -2434,6 +2545,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   async function logoutAdmin() {
     await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
     setUnlocked(false);
+    setCurrentUser(null);
     setPassword("");
     setAccessToken("");
     setUsers([]);
@@ -2444,6 +2556,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function updateReservationFields(id: number, payload: ReservationPatch) {
+    if (!canWrite(currentUser, "reservations")) {
+      showAdminLoading("Sem permissao para alterar reservas.");
+      return;
+    }
     setAdminLoadingLabel("Salvando reserva...");
     try {
       const response = await fetch("/api/admin/reservations", {
@@ -2462,6 +2578,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function createReservationFields(payload: ReservationPayload) {
+    if (!canWrite(currentUser, "reservations")) {
+      showAdminLoading("Sem permissao para criar reservas.");
+      return null;
+    }
     setAdminLoadingLabel("Criando reserva...");
     try {
       const response = await fetch("/api/admin/reservations", {
@@ -2483,6 +2603,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function updatePetFields(id: number, payload: PetPatch) {
+    if (!canWrite(currentUser, "pets")) {
+      showAdminLoading("Sem permissao para alterar pets.");
+      return;
+    }
     setAdminLoadingLabel("Salvando pet...");
     try {
       const response = await fetch("/api/admin/pets", {
@@ -2501,6 +2625,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function createPetFields(payload: PetPayload) {
+    if (!canWrite(currentUser, "pets")) {
+      showAdminLoading("Sem permissao para cadastrar pets.");
+      return null;
+    }
     setAdminLoadingLabel("Cadastrando pet...");
     try {
       const response = await fetch("/api/admin/pets", {
@@ -2522,6 +2650,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function createTutorRecord(payload: TutorPayload) {
+    if (!canWrite(currentUser, "clients")) {
+      showAdminLoading("Sem permissao para cadastrar tutores.");
+      return null;
+    }
     setAdminLoadingLabel("Cadastrando tutor...");
     try {
       const response = await fetch("/api/admin/tutors", {
@@ -2554,6 +2686,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function updateTutorRecord(id: number, payload: TutorPatch) {
+    if (!canWrite(currentUser, "clients")) {
+      showAdminLoading("Sem permissao para alterar tutores.");
+      return;
+    }
     setAdminLoadingLabel("Salvando tutor...");
     try {
       const response = await fetch("/api/admin/tutors", {
@@ -2585,6 +2721,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function createAdminRecordItem(payload: AdminRecordPayload) {
+    if (!canWrite(currentUser, pagePermission(payload.module_key as AdminPageKey))) {
+      showAdminLoading("Sem permissao para criar este registro.");
+      return;
+    }
     setAdminLoadingLabel("Criando registro...");
     try {
       const response = await fetch("/api/admin/records", {
@@ -2603,6 +2743,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function updateAdminRecordItem(id: number, payload: Partial<AdminRecordPayload>) {
+    if (!canWrite(currentUser, pagePermission((payload.module_key || adminPage) as AdminPageKey))) {
+      showAdminLoading("Sem permissao para alterar este registro.");
+      return;
+    }
     setAdminLoadingLabel("Salvando registro...");
     try {
       const response = await fetch("/api/admin/records", {
@@ -2621,9 +2765,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }
 
   async function deleteAdminRecordItem(id: number) {
+    if (!canWrite(currentUser, "settings")) {
+      showAdminLoading("Sem permissao para remover registros.");
+      return;
+    }
     setAdminLoadingLabel("Removendo registro...");
     try {
-      const response = await fetch(`/api/admin/records?id=${id}`, {
+      const response = await fetch(`/api/admin/records?id=${id}&module=${adminPage}`, {
         method: "DELETE",
         headers: adminHeaders()
       });
@@ -2638,6 +2786,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (currentUser?.role !== "admin") {
+      setUserMessage("Apenas administradores podem cadastrar usuarios.");
+      return;
+    }
     setUserMessage("");
     setAdminLoadingLabel("Cadastrando usuario...");
 
@@ -2651,7 +2803,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       if (response.ok) {
         const created = await response.json();
         setUsers((current) => [created, ...current]);
-        setUserForm({ name: "", email: "", password: "", role: "equipe" });
+        setUserForm({ name: "", email: "", password: "", role: "equipe", entities: ["creche"], permissions: defaultPermissionSet });
         setUserMessage("Usuario cadastrado.");
       } else {
         setUserMessage("Nao foi possivel cadastrar o usuario.");
@@ -2661,7 +2813,11 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
-  async function updateAdminUser(id: number, payload: Partial<Pick<AppUser, "role" | "is_active">>) {
+  async function updateAdminUser(id: number, payload: Partial<Pick<AppUser, "role" | "is_active" | "entities" | "permissions">>) {
+    if (currentUser?.role !== "admin") {
+      setUserMessage("Apenas administradores podem alterar permissoes.");
+      return;
+    }
     setAdminLoadingLabel("Atualizando usuario...");
     try {
       const response = await fetch("/api/admin/users", {
@@ -2736,7 +2892,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           <div><strong>Scolt&Cia</strong><span>{unitTitle(activeUnit)} em operacao</span></div>
         </div>
         <div className="admin-unit-switch" role="tablist" aria-label="Entidade administrativa">
-          {businessUnits.map((unit) => (
+          {businessUnits.filter((unit) => canUseUnit(currentUser, unit.key)).map((unit) => (
             <button key={unit.key} type="button" role="tab" className={activeUnit === unit.key ? "active" : ""} onClick={() => switchBusinessUnit(unit.key)} aria-selected={activeUnit === unit.key}>
               <span>{unit.shortTitle}</span>
               <small>{unit.description}</small>
@@ -2744,40 +2900,40 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           ))}
         </div>
         <nav className="admin-nav">
-          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando dashboard...")}><LayoutDashboard size={18} />Dashboard {unitTitle(activeUnit)}</a>
+          {canRead(currentUser, "dashboard") && <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando dashboard...")}><LayoutDashboard size={18} />Dashboard {unitTitle(activeUnit)}</a>}
           <div className="admin-nav-section">
             <span>Gestao</span>
-            <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
-            <a className={adminPage === "pets" ? "active" : ""} onClick={openPets}><PawPrint size={18} />Pets</a>
-            <a className={adminPage === "clients" ? "active" : ""} onClick={openClients}><Users size={18} />Clientes (Tutores)</a>
-            <a className={adminPage === "services" ? "active" : ""} onClick={() => openModule("services")}><Scissors size={18} />Servicos</a>
-            <a className={adminPage === "packages" ? "active" : ""} onClick={() => openModule("packages")}><Package size={18} />Pacotes</a>
-            <a className={adminPage === "daily_reports" ? "active" : ""} onClick={() => openModule("daily_reports")}><ClipboardCheck size={18} />Relatorios diarios</a>
+            {canRead(currentUser, "reservations") && <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>}
+            {canRead(currentUser, "pets") && <a className={adminPage === "pets" ? "active" : ""} onClick={openPets}><PawPrint size={18} />Pets</a>}
+            {canRead(currentUser, "clients") && <a className={adminPage === "clients" ? "active" : ""} onClick={openClients}><Users size={18} />Clientes (Tutores)</a>}
+            {canRead(currentUser, "services") && <a className={adminPage === "services" ? "active" : ""} onClick={() => openModule("services")}><Scissors size={18} />Servicos</a>}
+            {canRead(currentUser, "packages") && <a className={adminPage === "packages" ? "active" : ""} onClick={() => openModule("packages")}><Package size={18} />Pacotes</a>}
+            {canRead(currentUser, "daily_reports") && <a className={adminPage === "daily_reports" ? "active" : ""} onClick={() => openModule("daily_reports")}><ClipboardCheck size={18} />Relatorios diarios</a>}
           </div>
           <div className="admin-nav-section">
             <span>Operacao</span>
-            <a className={adminPage === "agenda" ? "active" : ""} onClick={() => goAdminPage("agenda", "Carregando agenda...")}><CalendarDays size={18} />Agenda</a>
-            <a className={adminPage === "checkin" ? "active" : ""} onClick={() => goAdminPage("checkin", "Carregando check-in...")}><CheckCircle2 size={18} />Check-in / Check-out</a>
-            <a className={adminPage === "activities" ? "active" : ""} onClick={() => openModule("activities")}><Activity size={18} />Atividades</a>
-            <a className={adminPage === "feeding" ? "active" : ""} onClick={() => openModule("feeding")}><Utensils size={18} />Alimentacao</a>
-            {activeUnit === "creche" && <a className={adminPage === "grooming" ? "active" : ""} onClick={() => goAdminPage("grooming", "Carregando banho e tosa...")}><Scissors size={18} />Banho e Tosa</a>}
+            {canRead(currentUser, "agenda") && <a className={adminPage === "agenda" ? "active" : ""} onClick={() => goAdminPage("agenda", "Carregando agenda...")}><CalendarDays size={18} />Agenda</a>}
+            {canRead(currentUser, "checkin") && <a className={adminPage === "checkin" ? "active" : ""} onClick={() => goAdminPage("checkin", "Carregando check-in...")}><CheckCircle2 size={18} />Check-in / Check-out</a>}
+            {canRead(currentUser, "activities") && <a className={adminPage === "activities" ? "active" : ""} onClick={() => openModule("activities")}><Activity size={18} />Atividades</a>}
+            {canRead(currentUser, "feeding") && <a className={adminPage === "feeding" ? "active" : ""} onClick={() => openModule("feeding")}><Utensils size={18} />Alimentacao</a>}
+            {activeUnit === "creche" && canRead(currentUser, "grooming") && <a className={adminPage === "grooming" ? "active" : ""} onClick={() => goAdminPage("grooming", "Carregando banho e tosa...")}><Scissors size={18} />Banho e Tosa</a>}
           </div>
-          <div className="admin-nav-section">
+          {(currentUser?.role === "admin" || canRead(currentUser, "users")) && <div className="admin-nav-section">
             <span>Equipe</span>
-            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Equipe</a>
-            <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><UserRound size={18} />Funcoes e permissoes</a>
-            <a className={adminPage === "schedules" ? "active" : ""} onClick={() => openModule("schedules")}><CalendarCheck size={18} />Escalas</a>
-          </div>
-          <div className="admin-nav-section">
+            {currentUser?.role === "admin" && <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><Users size={18} />Equipe</a>}
+            {currentUser?.role === "admin" && <a className={adminPage === "users" ? "active" : ""} onClick={openUsers}><UserRound size={18} />Funcoes e permissoes</a>}
+            {canRead(currentUser, "users") && <a className={adminPage === "schedules" ? "active" : ""} onClick={() => openModule("schedules")}><CalendarCheck size={18} />Escalas</a>}
+          </div>}
+          {canRead(currentUser, "settings") && <div className="admin-nav-section">
             <span>Configuracoes</span>
             <a className={adminPage === "unit" ? "active" : ""} onClick={() => openModule("unit")}><Home size={18} />Unidade</a>
             <a className={adminPage === "communications" ? "active" : ""} onClick={() => openModule("communications")}><Mail size={18} />Comunicacoes</a>
             <a className={adminPage === "general_settings" ? "active" : ""} onClick={() => openModule("general_settings")}><ShieldCheck size={18} />Configuracoes gerais</a>
-          </div>
+          </div>}
         </nav>
         <div className="admin-profile">
           <div className="admin-profile-photo">M</div>
-          <div><strong>{adminName}</strong><span>Administrador</span></div>
+          <div><strong>{adminName}</strong><span>{currentUser?.role === "admin" ? "Administrador" : "Equipe"}</span></div>
           <button type="button" onClick={logoutAdmin} aria-label="Sair do painel"><LogOut size={16} /></button>
         </div>
       </aside>
@@ -2896,28 +3052,83 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
           <section id="usuarios-admin" className="admin-card">
             <h2>Usuarios do sistema</h2>
-            <form className="compact-form" onSubmit={createAdminUser}>
-              <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
-              <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
-              <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
-              <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value as UserPayload["role"] }))}>
-                <option value="equipe">Equipe</option>
-                <option value="admin">Admin</option>
-                <option value="tutor">Tutor</option>
-              </select>
+            <form className="user-permission-form" onSubmit={createAdminUser}>
+              <div className="user-form-grid">
+                <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
+                <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
+                <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
+                <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value as UserPayload["role"], permissions: event.target.value === "admin" ? adminPermissionSet : current.permissions || defaultPermissionSet }))}>
+                  <option value="equipe">Equipe</option>
+                  <option value="admin">Admin</option>
+                  <option value="tutor">Tutor</option>
+                </select>
+              </div>
+
+              <div className="permission-section">
+                <strong>Entidade</strong>
+                <div className="entity-checks">
+                  {businessUnits.map((unit) => (
+                    <label key={unit.key}>
+                      <input type="checkbox" checked={(userForm.entities || []).includes(unit.key)} onChange={() => toggleUserFormEntity(unit.key)} />
+                      <span>{unit.title}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="permission-section">
+                <strong>Permissoes por area</strong>
+                <div className="permission-grid">
+                  {permissionGroups.map((permission) => (
+                    <label key={permission.key} className="permission-item">
+                      <span><b>{permission.label}</b><small>{permission.description}</small></span>
+                      <select value={(userForm.permissions || defaultPermissionSet)[permission.key] || "none"} disabled={userForm.role === "admin"} onChange={(event) => setUserFormPermission(permission.key, event.target.value as PermissionLevel)}>
+                        {permissionLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <button className="secondary-button">Cadastrar usuario</button>
             </form>
             {userMessage && <strong>{userMessage}</strong>}
             <div className="admin-list">
               {users.map((user) => (
                 <article className="reservation-row user-admin-row" key={user.id}>
-                  <div><strong>{user.name}</strong><p>{user.email} - {user.is_active ? "ativo" : "inativo"}</p></div>
-                  <select value={user.role} onChange={(event) => updateAdminUser(user.id, { role: event.target.value as AppUser["role"] })}>
-                    <option value="admin">Admin</option>
-                    <option value="equipe">Equipe</option>
-                    <option value="tutor">Tutor</option>
-                  </select>
-                  <button className={user.is_active ? "danger-action" : ""} onClick={() => updateAdminUser(user.id, { is_active: !user.is_active })}>{user.is_active ? "Desativar" : "Ativar"}</button>
+                  <div className="user-admin-head">
+                    <div><strong>{user.name}</strong><p>{user.email} - {user.is_active ? "ativo" : "inativo"}</p></div>
+                    <select value={user.role} onChange={(event) => updateAdminUser(user.id, { role: event.target.value as AppUser["role"], permissions: event.target.value === "admin" ? null : userPermissionSet(user) })}>
+                      <option value="admin">Admin</option>
+                      <option value="equipe">Equipe</option>
+                      <option value="tutor">Tutor</option>
+                    </select>
+                    <button className={user.is_active ? "danger-action" : ""} onClick={() => updateAdminUser(user.id, { is_active: !user.is_active })}>{user.is_active ? "Desativar" : "Ativar"}</button>
+                  </div>
+                  <div className="entity-checks compact">
+                    {businessUnits.map((unit) => {
+                      const checked = (user.entities || []).includes(unit.key);
+                      return (
+                        <label key={unit.key}>
+                          <input type="checkbox" checked={checked} disabled={user.role === "admin"} onChange={() => {
+                            const currentEntities = user.entities || [];
+                            const next = checked ? currentEntities.filter((item) => item !== unit.key) : [...currentEntities, unit.key];
+                            updateAdminUser(user.id, { entities: next.length ? next : [unit.key] });
+                          }} />
+                          <span>{unit.title}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="permission-grid compact">
+                    {permissionGroups.map((permission) => (
+                      <label key={permission.key} className="permission-item">
+                        <span><b>{permission.label}</b></span>
+                        <select value={user.role === "admin" ? "write" : userPermissionSet(user)[permission.key] || "none"} disabled={user.role === "admin"} onChange={(event) => updateAdminUser(user.id, { permissions: { ...userPermissionSet(user), [permission.key]: event.target.value as PermissionLevel } })}>
+                          {permissionLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
                 </article>
               ))}
             </div>

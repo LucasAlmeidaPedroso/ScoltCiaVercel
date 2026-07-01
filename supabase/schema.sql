@@ -35,6 +35,8 @@ create table if not exists app_users (
   name text not null,
   email text not null unique,
   role text not null default 'equipe' check (role in ('admin', 'equipe', 'tutor')),
+  entities jsonb not null default '["creche"]'::jsonb,
+  permissions jsonb,
   password_salt text not null,
   password_hash text not null,
   is_active boolean not null default true,
@@ -206,6 +208,8 @@ on conflict (id) do nothing;
 
 -- Vincula um usuario (login) ao cadastro de tutor e habilita o role tutor.
 alter table app_users add column if not exists tutor_id bigint references tutors(id) on delete set null;
+alter table app_users add column if not exists entities jsonb not null default '["creche"]'::jsonb;
+alter table app_users add column if not exists permissions jsonb;
 -- Campos extras do pet usados na Area do Tutor (aba Meu Pet).
 alter table pets add column if not exists allergies text;
 alter table pets add column if not exists microchip text;

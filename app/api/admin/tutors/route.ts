@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { hasPermission, requireAdmin } from "@/lib/auth";
 import { createTutor, listTutors, updateTutor } from "@/lib/data";
 
 const allowedFields = ["full_name", "phone", "whatsapp", "email", "address", "emergency_contact"] as const;
@@ -13,6 +13,7 @@ function cleanPayload(payload: Record<string, unknown>) {
 export async function GET(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  if (!hasPermission(admin, "clients", "read")) return NextResponse.json({ error: "Permissao insuficiente" }, { status: 403 });
 
   const tutors = await listTutors();
   return NextResponse.json(tutors);
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  if (!hasPermission(admin, "clients", "write")) return NextResponse.json({ error: "Permissao insuficiente" }, { status: 403 });
 
   const payload = cleanPayload(await request.json());
   if (!payload.full_name) return NextResponse.json({ error: "Nome do tutor obrigatorio" }, { status: 400 });
@@ -32,6 +34,7 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const admin = await requireAdmin(request);
   if (!admin) return NextResponse.json({ error: "Acesso negado" }, { status: 401 });
+  if (!hasPermission(admin, "clients", "write")) return NextResponse.json({ error: "Permissao insuficiente" }, { status: 403 });
 
   const { id, ...payload } = await request.json();
   if (!id) return NextResponse.json({ error: "Tutor nao informado" }, { status: 400 });
