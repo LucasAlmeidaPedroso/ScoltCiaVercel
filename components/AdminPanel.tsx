@@ -16,6 +16,7 @@ type Props = {
 
 type AdminModulePageKey = "services" | "packages" | "daily_reports" | "activities" | "feeding" | "schedules" | "unit" | "communications" | "general_settings";
 type AdminPageKey = "dashboard" | "reservations" | "pets" | "clients" | "agenda" | "checkin" | "grooming" | "users" | AdminModulePageKey;
+type BusinessUnit = "creche" | "hotel";
 
 const statusTabs = [
   { label: "Todas", status: "all" },
@@ -27,6 +28,18 @@ const statusTabs = [
 ];
 
 const googleLoginEnabled = false;
+
+const businessUnits: Array<{ key: BusinessUnit; title: string; shortTitle: string; description: string }> = [
+  { key: "creche", title: "Creche", shortTitle: "Creche", description: "Day Care, banho, tosa e rotina diaria." },
+  { key: "hotel", title: "Hotel", shortTitle: "Hotel", description: "Hospedagem, diarias e pernoites." }
+];
+
+const servicePrices: Record<string, number> = {
+  "Day Care": 85,
+  "Banho e Tosa": 120,
+  Atividade: 60,
+  Hospedagem: 150
+};
 
 type ModuleField = {
   key: string;
@@ -224,6 +237,40 @@ function serviceKind(value: string) {
   return "Day Care";
 }
 
+function serviceUnit(value: string): BusinessUnit {
+  return serviceKind(value) === "Hospedagem" ? "hotel" : "creche";
+}
+
+function reservationUnit(item: Reservation): BusinessUnit {
+  return serviceUnit(item.service);
+}
+
+function unitTitle(unit: BusinessUnit) {
+  return businessUnits.find((item) => item.key === unit)?.title || "Creche";
+}
+
+function unitDescription(unit: BusinessUnit) {
+  return businessUnits.find((item) => item.key === unit)?.description || "";
+}
+
+function serviceOptionsForUnit(unit: BusinessUnit) {
+  return unit === "hotel" ? ["Hospedagem"] : ["Day Care", "Banho e Tosa", "Atividade"];
+}
+
+function defaultServiceForUnit(unit: BusinessUnit) {
+  return unit === "hotel" ? "Hospedagem" : "Day Care";
+}
+
+function recordUnit(record: AdminRecord | AdminRecordPayload, fallbackUnit: BusinessUnit): BusinessUnit {
+  const explicit = String(record.payload?.unit || "").toLowerCase();
+  if (explicit === "hotel" || explicit === "creche") return explicit;
+  const service = String(record.payload?.service || record.title || "");
+  const normalized = service.toLowerCase();
+  if (normalized.includes("hosped") || normalized.includes("hotel")) return "hotel";
+  if (normalized.includes("day") || normalized.includes("creche") || normalized.includes("banho") || normalized.includes("tosa") || normalized.includes("ativ")) return "creche";
+  return fallbackUnit;
+}
+
 function isTodayReservation(item: Reservation, today: string) {
   return item.entry_date === today;
 }
@@ -271,7 +318,7 @@ function reservationDays(item: Reservation) {
 
 function reservationValue(item: Reservation) {
   const kind = serviceKind(item.service);
-  const price = kind === "Hospedagem" ? 120 : kind === "Banho e Tosa" ? 120 : 85;
+  const price = servicePrices[kind] || 85;
   return price * reservationDays(item);
 }
 
@@ -521,6 +568,7 @@ type AdminRecordsPageProps = {
   config: ModuleConfig;
   records: AdminRecord[];
   reservations: Reservation[];
+  businessUnit: BusinessUnit;
   onCreate: (payload: AdminRecordPayload) => Promise<void>;
   onPatch: (id: number, payload: Partial<AdminRecordPayload>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
@@ -531,7 +579,7 @@ function recordValue(record: AdminRecord | AdminRecordPayload, key: string) {
   return value === undefined || value === null ? "" : String(value);
 }
 
-function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, onDelete }: AdminRecordsPageProps) {
+function AdminRecordsPage({ config, records, reservations, businessUnit, onCreate, onPatch, onDelete }: AdminRecordsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [detail, setDetail] = useState<AdminRecord | null>(null);
@@ -540,8 +588,10 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
   const [form, setForm] = useState<AdminRecordPayload>({ module_key: config.key, title: "", status: "Ativo", payload: {} });
   const Icon = config.icon;
   const mergedRecords = useMemo(() => {
-    const persistedTitles = new Set(records.map((record) => record.title.toLowerCase()));
+    const unitRecords = records.filter((record) => recordUnit(record, businessUnit) === businessUnit);
+    const persistedTitles = new Set(unitRecords.map((record) => record.title.toLowerCase()));
     const defaults = config.defaults
+      .filter((item) => recordUnit(item, businessUnit) === businessUnit)
       .filter((item) => !persistedTitles.has(item.title.toLowerCase()))
       .map((item, index) => ({
         id: Number(`9${index}${config.key.length}`),
@@ -552,8 +602,8 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
         created_at: null,
         updated_at: null
       } as AdminRecord));
-    return [...records, ...defaults];
-  }, [records, config]);
+    return [...unitRecords, ...defaults];
+  }, [records, config, businessUnit]);
 
   const filteredRecords = useMemo(() => {
     const text = query.trim().toLowerCase();
@@ -567,12 +617,13 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
 
   const statuses = Array.from(new Set(mergedRecords.map((record) => record.status))).filter(Boolean);
   const activeCount = mergedRecords.filter((record) => ["Ativo", "Planejada", "Confirmado", "Concluido"].includes(record.status)).length;
+  const unitCustomCount = records.filter((record) => recordUnit(record, businessUnit) === businessUnit).length;
 
   function openCreate() {
     setCreating(true);
     setEditing(null);
     setDetail(null);
-    setForm({ module_key: config.key, title: "", status: "Ativo", payload: Object.fromEntries(config.fields.map((field) => [field.key, ""])) });
+    setForm({ module_key: config.key, title: "", status: "Ativo", payload: { unit: businessUnit, ...Object.fromEntries(config.fields.map((field) => [field.key, ""])) } });
   }
 
   function openEdit(record: AdminRecord) {
@@ -585,9 +636,9 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
   async function saveRecord(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (editing && editing.created_at) {
-      await onPatch(editing.id, form);
+      await onPatch(editing.id, { ...form, payload: { ...form.payload, unit: businessUnit } });
     } else {
-      await onCreate(form);
+      await onCreate({ ...form, payload: { ...form.payload, unit: businessUnit } });
     }
     setCreating(false);
     setEditing(null);
@@ -603,7 +654,7 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
     if (record.created_at) {
       await onPatch(record.id, { status: nextStatus });
     } else {
-      await onCreate({ module_key: config.key, title: record.title, status: nextStatus, payload: record.payload });
+      await onCreate({ module_key: config.key, title: record.title, status: nextStatus, payload: { ...record.payload, unit: businessUnit } });
     }
     setDetail(null);
   }
@@ -612,8 +663,8 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
     <section className="admin-main admin-module-page">
       <header className="admin-reservations-head">
         <div>
-          <h1>{config.title}</h1>
-          <p>{config.description}</p>
+          <h1>{config.title} - {unitTitle(businessUnit)}</h1>
+          <p>{config.description} Esta visao pertence a {unitTitle(businessUnit).toLowerCase()}.</p>
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Buscar em ${config.title.toLowerCase()}...`} /><Search size={20} /></label>
@@ -627,7 +678,7 @@ function AdminRecordsPage({ config, records, reservations, onCreate, onPatch, on
         <article><span className="purple"><CheckCircle2 size={28} /></span><div><small>Ativos</small><strong>{activeCount}</strong><em>Itens em uso</em></div></article>
         <article><span className="yellow"><Clock size={28} /></span><div><small>Pendentes</small><strong>{mergedRecords.filter((record) => ["Pendente", "Planejada"].includes(record.status)).length}</strong><em>Aguardando acao</em></div></article>
         <article><span className="pink"><Star size={28} /></span><div><small>Modelos</small><strong>{config.defaults.length}</strong><em>Padroes do sistema</em></div></article>
-        <article><span className="aqua"><Edit3 size={28} /></span><div><small>Personalizados</small><strong>{records.length}</strong><em>Salvos no sistema</em></div></article>
+        <article><span className="aqua"><Edit3 size={28} /></span><div><small>Personalizados</small><strong>{unitCustomCount}</strong><em>Salvos em {unitTitle(businessUnit)}</em></div></article>
       </div>
 
       <section className="reservation-table-card module-table-card">
@@ -1192,6 +1243,7 @@ type AdminReservationsPageProps = {
   pendingCount: number;
   initialStatus: string;
   initialService?: string;
+  businessUnit: BusinessUnit;
   title?: string;
   description?: string;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
@@ -1224,11 +1276,12 @@ function agendaEndTime(item: Reservation) {
 type AdminAgendaPageProps = {
   reservations: Reservation[];
   pendingCount: number;
+  businessUnit: BusinessUnit;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
   onCreate: (payload: ReservationPayload) => Promise<Reservation | null>;
 };
 
-function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: AdminAgendaPageProps) {
+function AdminAgendaPage({ reservations, pendingCount, businessUnit, onPatch, onCreate }: AdminAgendaPageProps) {
   const [selectedDate, setSelectedDate] = useState(localDateKey());
   const [viewMode, setViewMode] = useState<"Dia" | "Semana" | "Mes">("Dia");
   const [detail, setDetail] = useState<Reservation | null>(null);
@@ -1240,7 +1293,7 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
     pet_name: "",
     breed: "",
     size: "",
-    service: "Day Care",
+    service: defaultServiceForUnit(businessUnit),
     entry_date: selectedDate,
     exit_date: "",
     expected_time: "08:00",
@@ -1269,9 +1322,9 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
     { title: "Day Care", service: "Day Care", icon: Users, className: "daycare" },
     { title: "Banho e Tosa", service: "Banho e Tosa", icon: Scissors, className: "grooming" },
     { title: "Atividades", service: "Atividade", icon: PawPrint, className: "activity" }
-  ];
+  ].filter((column) => serviceOptionsForUnit(businessUnit).includes(column.service));
 
-  function openCreate(date = selectedDate, service = "Day Care", time = "08:00") {
+  function openCreate(date = selectedDate, service = defaultServiceForUnit(businessUnit), time = "08:00") {
     setCreating(true);
     setDetail(null);
     setForm({
@@ -1304,8 +1357,8 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
     <section className="admin-main admin-agenda-page">
       <header className="admin-reservations-head">
         <div>
-          <h1>Agenda</h1>
-          <p>Visualize e gerencie todos os servicos e atividades agendadas.</p>
+          <h1>Agenda - {unitTitle(businessUnit)}</h1>
+          <p>Visualize e gerencie somente a agenda de {unitTitle(businessUnit).toLowerCase()}.</p>
         </div>
         <div className="admin-topbar-tools">
           <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
@@ -1400,7 +1453,7 @@ function AdminAgendaPage({ reservations, pendingCount, onPatch, onCreate }: Admi
             <label>Telefone<input required value={form.phone} onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label>E-mail<input value={form.email || ""} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input required value={form.pet_name} onChange={(event) => setForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
-            <label>Servico<select value={form.service} onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}><option>Hospedagem</option><option>Day Care</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Servico<select value={form.service} onChange={(event) => setForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Data<input type="date" required value={form.entry_date} onChange={(event) => setForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Horario<input type="time" required value={form.expected_time || ""} onChange={(event) => setForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
             <label>Raca<input value={form.breed || ""} onChange={(event) => setForm((current) => ({ ...current, breed: event.target.value }))} /></label>
@@ -1417,11 +1470,12 @@ type AdminCheckinPageProps = {
   reservations: Reservation[];
   maxCapacity: number;
   pendingCount: number;
+  businessUnit: BusinessUnit;
   onPatch: (id: number, payload: ReservationPatch) => Promise<void>;
   onCreate: (payload: ReservationPayload) => Promise<Reservation | null>;
 };
 
-function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, onCreate }: AdminCheckinPageProps) {
+function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUnit, onPatch, onCreate }: AdminCheckinPageProps) {
   const [tab, setTab] = useState<"checkin" | "checkout">("checkin");
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
@@ -1436,7 +1490,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
     pet_name: "",
     breed: "",
     size: "",
-    service: "Day Care",
+    service: defaultServiceForUnit(businessUnit),
     entry_date: localDateKey(),
     exit_date: "",
     expected_time: new Date().toTimeString().slice(0, 5),
@@ -1493,7 +1547,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
       pet_name: "",
       breed: "",
       size: "",
-      service: "Day Care",
+      service: defaultServiceForUnit(businessUnit),
       entry_date: today,
       exit_date: "",
       expected_time: new Date().toTimeString().slice(0, 5),
@@ -1512,8 +1566,8 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
     <section className="admin-main admin-checkin-page">
       <header className="admin-reservations-head">
         <div>
-          <h1>Check-in / Check-out</h1>
-          <p>Gerencie as entradas e saidas de pets de forma rapida e pratica.</p>
+          <h1>Check-in / Check-out - {unitTitle(businessUnit)}</h1>
+          <p>Gerencie entradas e saidas somente de {unitTitle(businessUnit).toLowerCase()}.</p>
         </div>
         <div className="admin-topbar-tools">
           <AdminNotificationBell reservations={reservations} fallbackCount={pendingCount} />
@@ -1538,7 +1592,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
         <div className="admin-card-head checkin-list-title"><h2>{tab === "checkin" ? `Reservas para hoje (${new Intl.DateTimeFormat("pt-BR").format(new Date(`${today}T12:00:00`))})` : "Pets em atendimento"}</h2></div>
         <div className="reservation-filterbar checkin-filterbar">
           <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por pet ou tutor..." /></label>
-          <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}><option value="all">Todos os servicos</option><option value="Hospedagem">Hospedagem</option><option value="Day Care">Day Care</option><option value="Banho e Tosa">Banho e Tosa</option><option value="Atividade">Atividade</option></select>
+          <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}><option value="all">Todos os servicos</option>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option} value={option}>{option}</option>)}</select>
         </div>
         <div className="checkin-list">
           {filteredItems.map((item) => (
@@ -1585,7 +1639,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
             <label>Telefone<input required value={walkInForm.phone} onChange={(event) => setWalkInForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label>E-mail<input value={walkInForm.email || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input required value={walkInForm.pet_name} onChange={(event) => setWalkInForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
-            <label>Servico<select value={walkInForm.service} onChange={(event) => setWalkInForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Servico<select value={walkInForm.service} onChange={(event) => setWalkInForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Horario<input type="time" required value={walkInForm.expected_time || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={walkInForm.notes || ""} onChange={(event) => setWalkInForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Criar e fazer check-in</button>
@@ -1596,7 +1650,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, onPatch, on
   );
 }
 
-function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
+function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", businessUnit, title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1614,7 +1668,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     pet_name: "",
     breed: "",
     size: "Pequeno",
-    service: initialService === "all" ? "Day Care" : initialService,
+    service: initialService === "all" ? defaultServiceForUnit(businessUnit) : initialService,
     entry_date: localDateKey(),
     exit_date: "",
     expected_time: "08:00",
@@ -1683,7 +1737,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
       pet_name: "",
       breed: "",
       size: "Pequeno",
-      service: initialService === "all" ? "Day Care" : initialService,
+      service: initialService === "all" ? defaultServiceForUnit(businessUnit) : initialService,
       entry_date: localDateKey(),
       exit_date: "",
       expected_time: "08:00",
@@ -1722,8 +1776,8 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
     <section className="admin-main admin-reservations-page">
       <header className="admin-reservations-head">
         <div>
-          <h1>{title}</h1>
-          <p>{description}</p>
+          <h1>{title} - {unitTitle(businessUnit)}</h1>
+          <p>{description} Contabilidade isolada de {unitTitle(businessUnit).toLowerCase()}.</p>
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search reservation-search"><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar reserva, tutor ou pet..." /><Search size={20} /></label>
@@ -1747,10 +1801,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             <label><Search size={18} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por tutor ou pet..." /></label>
             <select value={serviceFilter} onChange={(event) => setServiceFilter(event.target.value)}>
               <option value="all">Todos os servicos</option>
-              <option value="Day Care">Day Care</option>
-              <option value="Hospedagem">Hospedagem</option>
-              <option value="Banho e Tosa">Banho e Tosa</option>
-              <option value="Atividade">Atividade</option>
+              {serviceOptionsForUnit(businessUnit).map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">Todos os status</option>
@@ -1851,7 +1902,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             <label>Pet<input required value={createForm.pet_name} onChange={(event) => setCreateForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
             <label>Raca<input value={createForm.breed || ""} onChange={(event) => setCreateForm((current) => ({ ...current, breed: event.target.value }))} /></label>
             <label>Porte<select value={createForm.size || "Pequeno"} onChange={(event) => setCreateForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
-            <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value, exit_date: event.target.value === "Hospedagem" ? current.exit_date || current.entry_date : "" }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Entrada<input required type="date" value={createForm.entry_date} onChange={(event) => setCreateForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={createForm.exit_date || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
             <label>Horario<input type="time" value={createForm.expected_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
@@ -1869,7 +1920,7 @@ function AdminReservationsPage({ reservations, selectedId, setSelectedId, pendin
             <label>Telefone<input value={editForm.phone || ""} onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))} /></label>
             <label>E-mail<input value={editForm.email || ""} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input value={editForm.pet_name || ""} onChange={(event) => setEditForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
-            <label>Servico<select value={editForm.service || "Day Care"} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}><option>Day Care</option><option>Hospedagem</option><option>Banho e Tosa</option><option>Atividade</option></select></label>
+            <label>Servico<select value={editForm.service || defaultServiceForUnit(businessUnit)} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
             <label>Entrada<input type="date" value={editForm.entry_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={editForm.exit_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
             <label>Horario<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
@@ -1889,6 +1940,7 @@ type DashboardHomeProps = {
   maxCapacity: number;
   adminName: string;
   userKey: string;
+  businessUnit: BusinessUnit;
   onOpenReservations: (status?: string) => void;
   onOpenNewReservation: () => void;
   onOpenUsers: () => void;
@@ -1913,7 +1965,7 @@ const dashboardWidgets: Array<{ key: DashboardWidgetKey; title: string; descript
 
 const defaultDashboardWidgets: DashboardWidgetKey[] = ["kpis", "line", "next", "checkins", "activities", "finance"];
 
-function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName, userKey, onOpenReservations, onOpenNewReservation, onOpenUsers, onUpdateStatus, onExportReport }: DashboardHomeProps) {
+function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName, userKey, businessUnit, onOpenReservations, onOpenNewReservation, onOpenUsers, onUpdateStatus, onExportReport }: DashboardHomeProps) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [visibleWidgets, setVisibleWidgets] = useState<DashboardWidgetKey[]>(defaultDashboardWidgets);
   const today = localDateKey();
@@ -1929,6 +1981,7 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
   const groomingToday = todayReservations.filter((item) => serviceKind(item.service) === "Banho e Tosa");
   const todayRevenue = todayReservations.reduce((sum, item) => sum + reservationValue(item), 0);
   const ticketAverage = todayReservations.length ? todayRevenue / todayReservations.length : 0;
+  const isHotel = businessUnit === "hotel";
   const serviceCounts = {
     "Day Care": reservations.filter((item) => serviceKind(item.service) === "Day Care").length,
     "Hospedagem": reservations.filter((item) => serviceKind(item.service) === "Hospedagem").length,
@@ -1956,15 +2009,15 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
     const start = new Date(`${item.entry_date}T12:00:00`);
     const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
     const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-    const price = kind === "Hospedagem" ? 120 : kind === "Banho e Tosa" ? 90 : 80;
+    const price = servicePrices[kind] || 85;
     return total + price * days;
   }, 0);
   const activities = [
-    ["08:00", "Abertura da unidade", "Equipe preparada para receber os pets", CheckCircle2],
-    ["09:00", "Day Care", `${dayCareToday.length} pet(s) programado(s)`, Activity],
+    ["08:00", isHotel ? "Ronda da hospedagem" : "Abertura da creche", isHotel ? `${activeHosting.length} hospede(s) ativo(s)` : "Equipe preparada para receber os pets", CheckCircle2],
+    ["09:00", isHotel ? "Check-in Hotel" : "Day Care", isHotel ? `${todayReservations.length} chegada(s) prevista(s)` : `${dayCareToday.length} pet(s) programado(s)`, Activity],
     ["12:00", "Alimentacao", `${todayReservations.length} rotina(s) para acompanhar`, Utensils],
-    ["15:00", "Banho e Tosa", `${todayReservations.filter((item) => serviceKind(item.service) === "Banho e Tosa").length} agendamento(s)`, Scissors],
-    ["18:00", "Encerramento do dia", `${checkins.filter((item) => item.status === "Concluida").length} check-in(s) concluidos`, CheckCircle2]
+    ["15:00", isHotel ? "Atualizacao dos hospedes" : "Banho e Tosa", isHotel ? "Fotos e acompanhamento das diarias" : `${groomingToday.length} agendamento(s)`, Scissors],
+    ["18:00", isHotel ? "Pernoite monitorado" : "Encerramento do dia", `${checkins.filter((item) => item.status === "Concluida").length} check-in(s) concluidos`, CheckCircle2]
   ] as const;
   const storageKey = `scoltcia-dashboard-widgets-v2-${userKey || "default"}`;
 
@@ -2010,8 +2063,8 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
     <section className="admin-main admin-dashboard-page">
       <header className="admin-dashboard-topbar">
         <div>
-          <h1>Ola, {adminName}!</h1>
-          <p>Aqui esta um resumo do que acontece na Scolt&Cia hoje.</p>
+          <h1>{unitTitle(businessUnit)} - Ola, {adminName}!</h1>
+          <p>{unitDescription(businessUnit)} Dados financeiros e operacionais separados.</p>
         </div>
         <div className="admin-topbar-tools">
           <label className="admin-search"><input placeholder="Buscar..." /><Search size={20} /></label>
@@ -2022,11 +2075,11 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
       </header>
 
       {isWidgetVisible("kpis") && <div className="admin-kpi-grid dashboard-widget" style={{ order: visibleWidgets.indexOf("kpis") }}>
-        <button className="admin-kpi kpi-aqua" onClick={() => onOpenReservations()}><span><CalendarCheck size={30} /></span><div><small>Reservas hoje</small><strong>{todayReservations.length}</strong><em>{reservations.length} reserva(s) no total</em></div></button>
-        <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>Hospedagens</small><strong>{activeHosting.length}</strong><em>Ativas hoje</em></div></button>
-        <button className="admin-kpi kpi-yellow" onClick={() => onOpenReservations()}><span><PawPrint size={30} /></span><div><small>Day Care</small><strong>{dayCareToday.length}</strong><em>Ativos hoje</em></div></button>
-        <button className="admin-kpi kpi-pink" onClick={() => onOpenReservations()}><span><Scissors size={30} /></span><div><small>Banho e Tosa</small><strong>{groomingToday.length}</strong><em>Agendamentos hoje</em></div></button>
-        <button className="admin-kpi kpi-aqua" onClick={() => onExportReport("financeiro")}><span><CreditCard size={30} /></span><div><small>Faturamento hoje</small><strong>{money(todayRevenue)}</strong><em>{todayReservations.length} reserva(s)</em></div></button>
+        <button className="admin-kpi kpi-aqua" onClick={() => onOpenReservations()}><span><CalendarCheck size={30} /></span><div><small>{isHotel ? "Entradas hoje" : "Reservas hoje"}</small><strong>{todayReservations.length}</strong><em>{reservations.length} registro(s) em {unitTitle(businessUnit)}</em></div></button>
+        <button className="admin-kpi kpi-purple" onClick={() => onOpenReservations("Em andamento")}><span><Home size={30} /></span><div><small>{isHotel ? "Hospedes ativos" : "Capacidade creche"}</small><strong>{isHotel ? activeHosting.length : `${todayReservations.length}/${maxCapacity}`}</strong><em>{isHotel ? "Diarias em andamento" : "Ocupacao operacional"}</em></div></button>
+        <button className="admin-kpi kpi-yellow" onClick={() => onOpenReservations()}><span><PawPrint size={30} /></span><div><small>{isHotel ? "Diaria hotel" : "Day Care"}</small><strong>{isHotel ? money(servicePrices.Hospedagem) : dayCareToday.length}</strong><em>{isHotel ? "Valor base por noite" : "Ativos hoje"}</em></div></button>
+        <button className="admin-kpi kpi-pink" onClick={() => onOpenReservations()}><span><Scissors size={30} /></span><div><small>{isHotel ? "Ticket medio" : "Banho e Tosa"}</small><strong>{isHotel ? money(ticketAverage) : groomingToday.length}</strong><em>{isHotel ? "Media do Hotel hoje" : "Agendamentos hoje"}</em></div></button>
+        <button className="admin-kpi kpi-aqua" onClick={() => onExportReport("financeiro")}><span><CreditCard size={30} /></span><div><small>Faturamento {unitTitle(businessUnit)}</small><strong>{money(todayRevenue)}</strong><em>{todayReservations.length} reserva(s)</em></div></button>
       </div>}
 
       <div className="admin-dashboard-layout">
@@ -2154,6 +2207,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [unlocked, setUnlocked] = useState(false);
   const [adminName, setAdminName] = useState("Marina");
   const [adminPage, setAdminPage] = useState<AdminPageKey>("dashboard");
+  const [activeUnit, setActiveUnit] = useState<BusinessUnit>("creche");
   const [reservationInitialStatus, setReservationInitialStatus] = useState("all");
   const [loginMessage, setLoginMessage] = useState("");
   const [items, setItems] = useState(reservations);
@@ -2171,6 +2225,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
   const loadingTimerRef = useRef<number>();
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
+  const operationalItems = useMemo(() => items.filter((item) => reservationUnit(item) === activeUnit), [items, activeUnit]);
+  const unitAdminRecords = useMemo(() => adminRecords.filter((record) => recordUnit(record, activeUnit) === activeUnit), [adminRecords, activeUnit]);
 
   function showAdminLoading(label: string, duration = 650) {
     window.clearTimeout(loadingTimerRef.current);
@@ -2188,6 +2244,15 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     setAdminPage(page);
   }
 
+  function switchBusinessUnit(unit: BusinessUnit) {
+    if (unit === activeUnit) return;
+    setActiveUnit(unit);
+    setReservationInitialStatus("all");
+    setSelectedId(items.find((item) => reservationUnit(item) === unit)?.id ?? 0);
+    if (unit === "hotel" && adminPage === "grooming") setAdminPage("dashboard");
+    showAdminLoading(`Abrindo ${unitTitle(unit)}...`);
+  }
+
   function adminHeaders() {
     return {
       "Content-Type": "application/json",
@@ -2200,7 +2265,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   function openReservations(status = "all") {
     goAdminPage("reservations", "Carregando reservas...");
     setReservationInitialStatus(status);
-    if (status !== "all") setSelectedId(items.find((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente"))?.id ?? 0);
+    if (status !== "all") setSelectedId(operationalItems.find((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente"))?.id ?? 0);
   }
 
   function openUsers() {
@@ -2234,6 +2299,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
     const filteredItems = items.filter((item) => {
+      if (reservationUnit(item) !== activeUnit) return false;
       if (kind === "daycare") return serviceKind(item.service) === "Day Care";
       if (kind === "hospedagem") return serviceKind(item.service) === "Hospedagem";
       return true;
@@ -2245,7 +2311,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         const start = new Date(`${item.entry_date}T12:00:00`);
         const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
         const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-        const price = kindName === "Hospedagem" ? 120 : kindName === "Banho e Tosa" ? 90 : 80;
+        const price = servicePrices[kindName] || 85;
         return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.status, kind === "financeiro" ? String(price * days) : ""];
       })
     ];
@@ -2254,7 +2320,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `scolt-cia-${kind}-${localDateKey()}.csv`;
+    anchor.download = `scolt-cia-${activeUnit}-${kind}-${localDateKey()}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
@@ -2309,8 +2375,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   }, []);
 
   function countByStatus(status: string) {
-    if (status === "all") return items.length;
-    return items.filter((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente")).length;
+    if (status === "all") return operationalItems.length;
+    return operationalItems.filter((item) => item.status === status || (status === "Aguardando aprovacao" && item.status === "Pendente")).length;
   }
 
   async function login(event: React.FormEvent<HTMLFormElement>) {
@@ -2667,10 +2733,18 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={52} height={52} />
-          <div><strong>Scolt&Cia</strong><span>Day Care e Hospedagem</span></div>
+          <div><strong>Scolt&Cia</strong><span>{unitTitle(activeUnit)} em operacao</span></div>
+        </div>
+        <div className="admin-unit-switch" role="tablist" aria-label="Entidade administrativa">
+          {businessUnits.map((unit) => (
+            <button key={unit.key} type="button" role="tab" className={activeUnit === unit.key ? "active" : ""} onClick={() => switchBusinessUnit(unit.key)} aria-selected={activeUnit === unit.key}>
+              <span>{unit.shortTitle}</span>
+              <small>{unit.description}</small>
+            </button>
+          ))}
         </div>
         <nav className="admin-nav">
-          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando dashboard...")}><LayoutDashboard size={18} />Dashboard</a>
+          <a className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando dashboard...")}><LayoutDashboard size={18} />Dashboard {unitTitle(activeUnit)}</a>
           <div className="admin-nav-section">
             <span>Gestao</span>
             <a className={adminPage === "reservations" ? "active" : ""} onClick={() => openReservations("all")}><CalendarCheck size={18} />Reservas</a>
@@ -2686,7 +2760,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
             <a className={adminPage === "checkin" ? "active" : ""} onClick={() => goAdminPage("checkin", "Carregando check-in...")}><CheckCircle2 size={18} />Check-in / Check-out</a>
             <a className={adminPage === "activities" ? "active" : ""} onClick={() => openModule("activities")}><Activity size={18} />Atividades</a>
             <a className={adminPage === "feeding" ? "active" : ""} onClick={() => openModule("feeding")}><Utensils size={18} />Alimentacao</a>
-            <a className={adminPage === "grooming" ? "active" : ""} onClick={() => goAdminPage("grooming", "Carregando banho e tosa...")}><Scissors size={18} />Banho e Tosa</a>
+            {activeUnit === "creche" && <a className={adminPage === "grooming" ? "active" : ""} onClick={() => goAdminPage("grooming", "Carregando banho e tosa...")}><Scissors size={18} />Banho e Tosa</a>}
           </div>
           <div className="admin-nav-section">
             <span>Equipe</span>
@@ -2710,12 +2784,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       {adminPage === "dashboard" && (
         <AdminDashboardHome
-          reservations={items}
+          reservations={operationalItems}
           pets={petItems}
           users={users}
           maxCapacity={maxCapacity}
           adminName={adminName}
           userKey={email}
+          businessUnit={activeUnit}
           onOpenReservations={(status = "all") => openReservations(status)}
           onOpenNewReservation={() => openReservations("all")}
           onOpenUsers={openClients}
@@ -2750,11 +2825,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       {adminPage === "reservations" && (
         <AdminReservationsPage
-          reservations={items}
+          reservations={operationalItems}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
           initialStatus={reservationInitialStatus}
+          businessUnit={activeUnit}
           onPatch={updateReservationFields}
           onCreate={createReservationFields}
         />
@@ -2762,8 +2838,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       {adminPage === "agenda" && (
         <AdminAgendaPage
-          reservations={items}
+          reservations={operationalItems}
           pendingCount={countByStatus("Aguardando aprovacao")}
+          businessUnit={activeUnit}
           onPatch={updateReservationFields}
           onCreate={createReservationFields}
         />
@@ -2771,9 +2848,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       {adminPage === "checkin" && (
         <AdminCheckinPage
-          reservations={items}
+          reservations={operationalItems}
           maxCapacity={maxCapacity}
           pendingCount={countByStatus("Aguardando aprovacao")}
+          businessUnit={activeUnit}
           onPatch={updateReservationFields}
           onCreate={createReservationFields}
         />
@@ -2781,12 +2859,13 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
       {adminPage === "grooming" && (
         <AdminReservationsPage
-          reservations={items}
+          reservations={operationalItems}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
           initialStatus="all"
           initialService="Banho e Tosa"
+          businessUnit={activeUnit}
           title="Banho e Tosa"
           description="Gerencie atendimentos de higiene, banho, tosa e finalizacao."
           onPatch={updateReservationFields}
@@ -2797,8 +2876,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       {currentModuleConfig && (
         <AdminRecordsPage
           config={currentModuleConfig}
-          records={adminRecords.filter((record) => record.module_key === currentModuleConfig.key)}
-          reservations={items}
+          records={unitAdminRecords.filter((record) => record.module_key === currentModuleConfig.key)}
+          reservations={operationalItems}
+          businessUnit={activeUnit}
           onCreate={createAdminRecordItem}
           onPatch={updateAdminRecordItem}
           onDelete={deleteAdminRecordItem}
