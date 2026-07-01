@@ -186,7 +186,21 @@ alter table admin_records     enable row level security;
 revoke all on pet_options from anon, authenticated;
 
 -- ---------------------------------------------------------------------
--- 5. ADMIN INICIAL
+-- 5. MIGRACOES IDEMPOTENTES PARA BANCOS EXISTENTES
+--    Garante colunas criadas em versoes posteriores antes dos seeds.
+-- ---------------------------------------------------------------------
+
+alter table app_users add column if not exists tutor_id bigint references tutors(id) on delete set null;
+alter table app_users add column if not exists entities jsonb not null default '["creche"]'::jsonb;
+alter table app_users add column if not exists permissions jsonb;
+alter table reservations add column if not exists exit_time text;
+alter table pets add column if not exists allergies text;
+alter table pets add column if not exists microchip text;
+alter table pets add column if not exists neutered boolean;
+alter table pets add column if not exists cover_url text;
+
+-- ---------------------------------------------------------------------
+-- 6. ADMIN INICIAL
 --    Criado automaticamente para facilitar o primeiro acesso ao painel.
 --    E-mail: lucasalmeidapedroso@gmail.com
 --    Senha inicial: !Levi@2023
@@ -214,7 +228,7 @@ on conflict (email) do update set
   is_active = true;
 
 -- ---------------------------------------------------------------------
--- 6. SEED - configuracao da creche (linha unica, id = 1)
+-- 7. SEED - configuracao da creche (linha unica, id = 1)
 -- ---------------------------------------------------------------------
 
 insert into daycare_settings (id, max_capacity)
@@ -222,22 +236,11 @@ values (1, 20)
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------
--- 7. AREA DO TUTOR - tabelas do portal de acompanhamento
+-- 8. AREA DO TUTOR - tabelas do portal de acompanhamento
 -- ---------------------------------------------------------------------
 -- Toda a Area do Tutor le dados reais por aqui (via service role).
 -- 
 -- =====================================================================
-
--- Vincula um usuario (login) ao cadastro de tutor e habilita o role tutor.
-alter table app_users add column if not exists tutor_id bigint references tutors(id) on delete set null;
-alter table app_users add column if not exists entities jsonb not null default '["creche"]'::jsonb;
-alter table app_users add column if not exists permissions jsonb;
-alter table reservations add column if not exists exit_time text;
--- Campos extras do pet usados na Area do Tutor (aba Meu Pet).
-alter table pets add column if not exists allergies text;
-alter table pets add column if not exists microchip text;
-alter table pets add column if not exists neutered boolean;
-alter table pets add column if not exists cover_url text;
 
 -- Presenca atual do pet (status "agora" no dashboard).
 create table if not exists pet_presence (
