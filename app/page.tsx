@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, CalendarDays, CheckCircle2, ChevronRight, Heart, Home, Menu, MessageCircle, PawPrint, Scissors, Stethoscope, Moon, UserRound } from "lucide-react";
+import { Bell, CalendarDays, CheckCircle2, ChevronRight, Heart, Home, Menu, MessageCircle, PawPrint, Scissors, Stethoscope, Moon } from "lucide-react";
 
 const services = [
   {
@@ -124,13 +124,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-      <nav className="home-mobile-bottom-nav" aria-label="Navegacao do aplicativo">
-        <Link href="/" className="active"><Home size={22} /><span>Inicio</span></Link>
-        <Link href="/reserva"><CalendarDays size={22} /><span>Reservas</span></Link>
-        <Link href="/area-do-tutor"><PawPrint size={22} /><span>Meu pet</span></Link>
-        <a href="https://wa.me/5511984130296"><MessageCircle size={22} /><span>Mensagens</span></a>
-        <Link href="/area-do-tutor"><UserRound size={22} /><span>Perfil</span></Link>
-      </nav>
     </main>
   );
 }
