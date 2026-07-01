@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Nunito_Sans } from "next/font/google";
-import { CalendarDays, Camera, ChevronRight, ClipboardCheck, Heart, Home, Hotel, MapPin, MessageCircle, PawPrint, Scissors, ShieldCheck, UserRound } from "lucide-react";
+import { Camera, ChevronRight, ClipboardCheck, Heart, Home, Hotel, MapPin, MessageCircle, PawPrint, Scissors, ShieldCheck } from "lucide-react";
 import { SiteNav } from "@/components/SiteNav";
 import { RouteLoadingIndicator } from "@/components/RouteLoadingIndicator";
 import { FontSizeControls } from "@/components/FontSizeControls";
+import { MobileAppNav } from "@/components/MobileAppNav";
 import "./globals.css";
 
 const roundedFont = Nunito_Sans({
@@ -97,13 +98,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
-        <nav className="mobile-app-nav" aria-label="Navegacao do aplicativo">
-          <Link href="/"><Home size={22} /><span>Inicio</span></Link>
-          <Link href="/reserva"><CalendarDays size={22} /><span>Reservas</span></Link>
-          <Link href="/area-do-tutor" className="mobile-app-nav-main"><PawPrint size={34} /><span>Meu pet</span></Link>
-          <a href="https://wa.me/5511984130296"><MessageCircle size={22} /><span>Mensagens</span></a>
-          <Link href="/area-do-tutor"><UserRound size={22} /><span>Perfil</span></Link>
-        </nav>
+        <MobileAppNav />
       </body>
     </html>
   );

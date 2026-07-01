@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Lock, Mail, PawPrint } from "lucide-react";
+import { Apple, ArrowLeft, Lock, Mail, PawPrint } from "lucide-react";
 
 export function TutorLogin({ onSuccess }: { onSuccess: (user: { name: string; email: string }) => void }) {
   const [email, setEmail] = useState("");
@@ -51,6 +51,12 @@ export function TutorLogin({ onSuccess }: { onSuccess: (user: { name: string; em
             {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <div className="tutor-login-socials" aria-label="Opcoes sociais">
+          <span>ou</span>
+          <button type="button"><b>G</b> Continuar com Google</button>
+          <button type="button"><Apple size={18} /> Continuar com Apple</button>
+        </div>
 
         <Link href="/" className="tutor-login-back"><ArrowLeft size={15} /> Voltar ao site</Link>
       </div>

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Filter, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
+import { Activity, Apple, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Filter, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AdminRecord, AdminRecordPayload, AppUser, BusinessEntity, DaycareSettings, PermissionKey, PermissionLevel, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload, UserPermissions } from "@/lib/types";
@@ -2905,6 +2905,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
               {loginMessage && <p className="tutor-login-error" role="alert">{loginMessage}</p>}
               <button className="tutor-login-btn" type="submit">Entrar</button>
             </form>
+
+            <div className="tutor-login-socials" aria-label="Opcoes sociais">
+              <span>ou</span>
+              <button type="button"><b>G</b> Continuar com Google</button>
+              <button type="button"><Apple size={18} /> Continuar com Apple</button>
+            </div>
 
             <Link href="/" className="tutor-login-back"><ArrowLeft size={15} /> Voltar ao site</Link>
           </div>
