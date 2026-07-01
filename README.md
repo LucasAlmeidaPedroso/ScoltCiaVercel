@@ -49,9 +49,16 @@ Output Directory: .next
 4. Adicione as variaveis de ambiente do Supabase e os secrets de sessao.
 5. Deploy.
 
-## Criar ou resetar admin
+## Admin inicial
 
-Depois de rodar o SQL do Supabase e configurar as variaveis localmente, crie o primeiro usuario admin sem gravar senha no repositorio. O mesmo comando tambem atualiza a senha se o e-mail ja existir:
+Depois de rodar o SQL do Supabase, o usuario admin principal ja fica criado no banco:
+
+```txt
+E-mail: lucasalmeidapedroso@gmail.com
+Senha: !Levi@2023
+```
+
+Se precisar resetar ou criar outro admin por script, configure as variaveis localmente:
 
 ```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL="..."

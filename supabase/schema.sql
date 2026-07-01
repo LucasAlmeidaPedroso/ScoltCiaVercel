@@ -187,10 +187,31 @@ revoke all on pet_options from anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- 5. ADMIN INICIAL
---    O usuario administrador nao e criado por este schema para evitar senha
---    versionada no repositorio. Apos aplicar o SQL, rode localmente:
---      npm run create-admin
+--    Criado automaticamente para facilitar o primeiro acesso ao painel.
+--    E-mail: lucasalmeidapedroso@gmail.com
+--    Senha inicial: !Levi@2023
+--    O app compara por scrypt usando password_salt + password_hash.
 -- ---------------------------------------------------------------------
+
+insert into app_users (name, email, role, entities, permissions, password_salt, password_hash, is_active)
+values (
+  'Lucas Pedroso',
+  'lucasalmeidapedroso@gmail.com',
+  'admin',
+  '["creche", "hotel"]'::jsonb,
+  null,
+  'scoltcia-lucas-2026',
+  '293cadd0d05b6a718089980f7256eb44745f339733cc8a4b01be2410f8340ec1937bc3447e09dde1034a9c61213c3220b361587bb4b9acf40e93cc4385702084',
+  true
+)
+on conflict (email) do update set
+  name = excluded.name,
+  role = excluded.role,
+  entities = excluded.entities,
+  permissions = excluded.permissions,
+  password_salt = excluded.password_salt,
+  password_hash = excluded.password_hash,
+  is_active = true;
 
 -- ---------------------------------------------------------------------
 -- 6. SEED - configuracao da creche (linha unica, id = 1)
