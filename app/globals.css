@@ -4133,9 +4133,11 @@ body:has(.admin-app-route) .site-footer {
 }
 .home-title-mobile,
 .home-mobile-points,
-.home-mobile-appbar,
+.home-onboarding-brand,
 .home-app-cta,
-.mobile-app-nav {
+.home-onboarding-login,
+.about-mobile-dog,
+.about-mobile-start {
   display: none;
 }
 .home-underline {
@@ -6116,14 +6118,7 @@ body:has(.admin-app-route) .site-footer {
     display: none;
   }
   body {
-    padding-bottom: 92px;
     background: #f7fbff;
-  }
-  body:has(.admin-app-route),
-  body:has(.tutor-shell),
-  body:has(.tutor-login),
-  body:has(.admin-login) {
-    padding-bottom: 0;
   }
   .site-header {
     background: rgba(255, 255, 255, .97);
@@ -6265,68 +6260,23 @@ body:has(.admin-app-route) .site-footer {
   .site-footer {
     display: none;
   }
-  body:has(.admin-app-route) .mobile-app-nav,
-  body:has(.tutor-shell) .mobile-app-nav,
-  body:has(.tutor-login) .mobile-app-nav,
-  body:has(.admin-login) .mobile-app-nav {
-    display: none;
-  }
-  .mobile-app-nav {
-    position: fixed;
-    left: 14px;
-    right: 14px;
-    bottom: max(10px, env(safe-area-inset-bottom));
-    z-index: 70;
-    min-height: 82px;
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    align-items: end;
-    gap: 2px;
-    border: 1px solid rgba(231, 238, 247, .92);
-    border-radius: 28px;
-    padding: 11px 10px 10px;
-    background: rgba(255, 255, 255, .96);
-    box-shadow: 0 18px 44px rgba(7, 29, 58, .16);
-    backdrop-filter: blur(16px);
-  }
-  .mobile-app-nav a {
-    min-width: 0;
-    min-height: 54px;
-    display: grid;
-    align-content: center;
-    justify-items: center;
-    gap: 5px;
-    color: #071d3a;
-    font-size: 10px;
-    font-weight: 900;
-  }
-  .mobile-app-nav a.active,
-  .mobile-app-nav a:hover {
-    color: #11a89d;
-  }
-  .mobile-app-nav-main {
-    position: relative;
-    transform: translateY(-20px);
-    color: #fff !important;
-  }
-  .mobile-app-nav-main svg {
-    width: 68px;
-    height: 68px;
-    border: 7px solid #fff;
-    border-radius: 50%;
-    padding: 15px;
-    color: #fff;
-    background: linear-gradient(135deg, #18c5bb, #009f98);
-    box-shadow: 0 16px 30px rgba(0, 159, 152, .28);
-  }
-  .mobile-app-nav-main span {
-    display: none;
-  }
   .about-hero,
   .about-wellbeing,
   .about-space {
     padding: 28px 0;
     background: #f7fbff;
+  }
+  .about-hero {
+    display: none;
+  }
+  .about-wellbeing {
+    min-height: 100vh;
+    padding: max(30px, env(safe-area-inset-top)) 0 24px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 85% 18%, rgba(24, 185, 177, .08), transparent 20%),
+      radial-gradient(circle at 16% 86%, rgba(24, 185, 177, .1), transparent 22%),
+      #fff;
   }
   .about-hero-grid,
   .about-section-grid {
@@ -6335,6 +6285,24 @@ body:has(.admin-app-route) .site-footer {
   .about-hero-grid,
   .about-section-grid {
     gap: 18px;
+  }
+  .about-wellbeing .about-section-grid {
+    display: block;
+  }
+  .about-wellbeing .about-section-grid > div:first-child {
+    text-align: center;
+  }
+  .about-wellbeing .about-eyebrow,
+  .about-wellbeing .about-section-grid > div:first-child p {
+    display: none;
+  }
+  .about-wellbeing h2 {
+    max-width: 245px;
+    margin: 8px auto 24px;
+    color: #071d3a;
+    font-size: 22px;
+    line-height: 1.14;
+    font-weight: 900;
   }
   .about-hero-copy,
   .about-care-list article,
@@ -6376,9 +6344,31 @@ body:has(.admin-app-route) .site-footer {
   .about-care-list article {
     grid-template-columns: 52px 1fr;
   }
+  .about-care-list {
+    gap: 10px;
+  }
+  .about-care-list article {
+    min-height: 74px;
+    align-items: center;
+    border-radius: 16px;
+    padding: 12px 14px;
+  }
+  .about-care-list article > div {
+    min-width: 0;
+  }
   .about-care-list article > span {
     width: 46px;
     height: 46px;
+    border-radius: 15px;
+  }
+  .about-care-list h3 {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .about-care-list p {
+    font-size: 11px;
+    line-height: 1.28;
+    overflow-wrap: anywhere;
   }
   .about-check {
     display: none;
@@ -6392,6 +6382,35 @@ body:has(.admin-app-route) .site-footer {
   .about-heart-line,
   .about-paw-b {
     display: none;
+  }
+  .about-mobile-dog {
+    width: min(280px, 78vw);
+    display: block;
+    margin: 20px auto -2px;
+  }
+  .about-mobile-dog img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 210px;
+    object-fit: cover;
+    object-position: 52% 56%;
+    border-radius: 24px;
+  }
+  .about-mobile-start {
+    width: min(430px, calc(100vw - 28px));
+    min-height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 14px auto 0;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, #14bfb4, #009f98);
+    box-shadow: 0 18px 34px rgba(0, 159, 152, .22);
+    font-size: 13px;
+    font-weight: 900;
   }
   .services-hero {
     padding: 28px 0 22px;
@@ -6574,18 +6593,21 @@ body:has(.admin-app-route) .site-footer {
     max-width: 100%;
   }
   .home-page {
-    padding-bottom: 82px;
+    padding-bottom: 0;
     background: #f7fbff;
   }
   body:has(.home-page) .site-header {
     display: none;
   }
+  body:has(.about-page) .site-header {
+    display: none;
+  }
   .home-hero {
     min-height: auto;
-    padding: 0 0 26px;
+    padding: 0 0 14px;
     background:
       radial-gradient(circle at 89% 19%, rgba(143, 95, 232, .12), transparent 22%),
-      linear-gradient(180deg, #ffffff 0 88px, #dffbf6 88px, #f5fbff 62%, #f9fbff 100%);
+      linear-gradient(180deg, #ffffff 0 118px, #eefdfb 118px, #f9fbff 100%);
   }
   .home-hero:after {
     display: none;
@@ -6597,63 +6619,25 @@ body:has(.admin-app-route) .site-footer {
     width: min(430px, calc(100vw - 28px));
     padding-top: max(12px, env(safe-area-inset-top));
   }
-  .home-mobile-appbar {
-    display: grid;
-    grid-template-columns: 42px 54px minmax(0, 1fr) 42px;
-    align-items: center;
-    gap: 10px;
-    min-height: 76px;
-    margin: 0 -14px;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, .96);
-    box-shadow: 0 12px 28px rgba(7, 29, 58, .06);
-  }
-  .home-mobile-appbar button {
-    width: 42px;
-    height: 42px;
-    display: grid;
-    place-items: center;
-    border: 0;
-    border-radius: 14px;
-    color: #071d3a;
-    background: transparent;
-  }
-  .home-mobile-appbar img {
-    width: 54px;
-    height: 54px;
-    border-radius: 15px;
-    box-shadow: 0 10px 20px rgba(24, 185, 177, .22);
-  }
-  .home-mobile-appbar strong,
-  .home-mobile-appbar span {
+  .home-onboarding-brand {
     display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    padding: 20px 0 18px;
+    text-align: center;
   }
-  .home-mobile-appbar strong {
-    color: #071d3a;
-    font-size: 16px;
+  .home-onboarding-brand strong,
+  .home-onboarding-brand span {
+    display: block;
+  }
+  .home-onboarding-brand strong {
+    color: #009f98;
+    font-size: 19px;
     font-weight: 900;
   }
-  .home-mobile-appbar span {
-    margin-top: 2px;
-    color: #405672;
-    font-size: 12px;
+  .home-onboarding-brand span {
+    margin-top: 3px;
+    color: #009f98;
+    font-size: 11px;
     font-weight: 800;
-  }
-  .home-mobile-bell {
-    position: relative;
-  }
-  .home-mobile-bell i {
-    position: absolute;
-    top: 9px;
-    right: 9px;
-    width: 11px;
-    height: 11px;
-    border: 2px solid #fff;
-    border-radius: 50%;
-    background: #ed4f91;
   }
   .tutor-login {
     min-height: 100vh;
@@ -6724,10 +6708,7 @@ body:has(.admin-app-route) .site-footer {
     border-radius: 16px;
   }
   .home-eyebrow {
-    margin-top: 22px;
-    gap: 8px;
-    font-size: 12px;
-    line-height: 1.25;
+    display: none;
   }
   .home-title-desktop {
     display: none;
@@ -6736,10 +6717,11 @@ body:has(.admin-app-route) .site-footer {
     display: inline;
   }
   .home-hero h1 {
-    max-width: 340px;
-    margin-top: 13px;
-    font-size: clamp(27px, 7.7vw, 32px);
-    line-height: 1.11;
+    max-width: 310px;
+    margin: 0 auto 13px;
+    font-size: 21px;
+    line-height: 1.18;
+    text-align: center;
   }
   .home-mobile-points {
     display: none;
@@ -6788,15 +6770,15 @@ body:has(.admin-app-route) .site-footer {
   .home-hero-photo {
     display: block;
     order: 3;
-    margin: 14px 0 0;
+    margin: 0;
   }
   .home-hero-photo img {
     width: 100%;
     height: auto;
-    aspect-ratio: 1.68 / 1;
+    aspect-ratio: .92 / 1;
     object-fit: cover;
     object-position: center;
-    border-radius: 22px;
+    border-radius: 0 0 24px 24px;
     box-shadow: 0 18px 38px rgba(7, 29, 58, .13);
   }
   .hero-heart {
@@ -6815,7 +6797,7 @@ body:has(.admin-app-route) .site-footer {
   }
   .home-services {
     margin-top: 0;
-    padding: 12px 0 20px;
+    padding: 0 0 22px;
     background: #f7fbff;
   }
   .home-services:before {
@@ -6829,13 +6811,14 @@ body:has(.admin-app-route) .site-footer {
   }
   .home-service-grid,
   .home-photo-mosaic {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .home-service-grid {
     width: min(430px, calc(100vw - 28px));
     gap: 11px;
   }
   .home-service-card {
+    min-width: 0;
     min-height: 132px;
     display: grid;
     grid-template-columns: 1fr;
@@ -6862,51 +6845,55 @@ body:has(.admin-app-route) .site-footer {
   }
   .home-service-card h3 {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.18;
   }
   .home-service-card p {
-    display: none;
+    display: block;
+    margin-top: 6px;
+    font-size: 10.5px;
+    line-height: 1.25;
+    color: #405672;
+    font-weight: 800;
   }
   .card-paw {
     display: none;
   }
   .home-app-cta {
     width: min(430px, calc(100vw - 28px));
-    min-height: 104px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 52px;
+    min-height: 56px;
+    display: inline-flex;
     align-items: center;
-    gap: 14px;
-    margin: 22px auto 0;
-    border-radius: 20px;
-    padding: 20px 20px 20px 22px;
+    justify-content: center;
+    gap: 9px;
+    margin: 18px auto 0;
+    border-radius: 14px;
+    padding: 15px 18px;
     color: #fff;
     background: linear-gradient(135deg, #14bfb4, #009f98);
     box-shadow: 0 18px 34px rgba(0, 159, 152, .22);
   }
   .home-app-cta span {
-    display: grid;
-    gap: 7px;
-  }
-  .home-app-cta strong {
-    font-size: 18px;
+    font-size: 14px;
     font-weight: 900;
   }
-  .home-app-cta small {
-    max-width: 245px;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1.35;
-  }
   .home-app-cta > svg {
-    width: 48px;
-    height: 48px;
-    justify-self: end;
-    border-radius: 50%;
-    padding: 13px;
-    color: #009f98;
-    background: #fff;
+    width: 17px;
+    height: 17px;
+    padding: 0;
+    color: currentColor;
+    background: transparent;
+  }
+  .home-onboarding-login {
+    width: max-content;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin: 15px auto 0;
+    color: #071d3a;
+    font-size: 13px;
+    font-weight: 900;
   }
   .home-diffs {
     padding: 20px 0 26px;

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Award, ClipboardCheck, Heart, Home, PawPrint, ShieldCheck, Sparkles, Syringe, UsersRound } from "lucide-react";
 
 const careItems = [
@@ -21,6 +22,11 @@ const careItems = [
     icon: UsersRound,
     title: "Equipe responsavel e apaixonada",
     text: "Profissionais treinados e dedicados ao bem-estar de cada pet."
+  },
+  {
+    icon: PawPrint,
+    title: "Diversao garantida",
+    text: "Atividades, recreacao e muito aprendizado todos os dias."
   }
 ];
 
@@ -60,8 +66,8 @@ export default function SobrePage() {
       <section className="about-wellbeing">
         <div className="about-section-grid">
           <div>
-            <span className="about-eyebrow">Bem-estar em primeiro lugar</span>
-            <h2>Bem-estar em primeiro lugar</h2>
+            <span className="about-eyebrow">Nossos diferenciais</span>
+            <h2>Por que escolher a Scolt&Cia?</h2>
             <p>A Scolt&Cia acolhe cachorros com supervisao, integracao gradual e atividades adequadas ao porte, energia e comportamento de cada pet.</p>
           </div>
 
@@ -81,6 +87,10 @@ export default function SobrePage() {
             })}
           </div>
         </div>
+        <div className="about-mobile-dog" aria-hidden="true">
+          <Image src="/img/hero-dachshund-akita.png" alt="" width={620} height={520} />
+        </div>
+        <Link className="about-mobile-start" href="/area-do-tutor"><PawPrint size={16} /> Vamos comecar!</Link>
       </section>
 
       <section className="about-space">

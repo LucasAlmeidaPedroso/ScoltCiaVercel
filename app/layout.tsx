@@ -6,7 +6,6 @@ import { Camera, ChevronRight, ClipboardCheck, Heart, Home, Hotel, MapPin, Messa
 import { SiteNav } from "@/components/SiteNav";
 import { RouteLoadingIndicator } from "@/components/RouteLoadingIndicator";
 import { FontSizeControls } from "@/components/FontSizeControls";
-import { MobileAppNav } from "@/components/MobileAppNav";
 import "./globals.css";
 
 const roundedFont = Nunito_Sans({
@@ -98,7 +97,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
         </footer>
-        <MobileAppNav />
       </body>
     </html>
   );
