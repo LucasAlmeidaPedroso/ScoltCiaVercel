@@ -9,6 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "create-admin": "node scripts/create-admin.mjs",
     "lint": "next lint"
   },
   "dependencies": {

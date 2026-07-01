@@ -44,7 +44,7 @@ export default async function VacinasPage() {
                   <span className={`tutor-status-badge ${info.cls}`}>
                     <span className="tutor-dot" /> {info.label}
                   </span>
-                  <button className="tutor-ghost-btn"><Paperclip size={15} /> Carteira</button>
+                  <button className="tutor-ghost-btn" disabled><Paperclip size={15} /> Carteira</button>
                 </div>
               </article>
             );

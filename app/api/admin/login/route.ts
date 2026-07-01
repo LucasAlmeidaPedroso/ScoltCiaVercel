@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyAdminCredentials } from "@/lib/auth";
+import { adminSessionCookie, createAdminSessionToken } from "@/lib/admin-session";
 
 export async function POST(request: Request) {
   const { email, password } = await request.json();
@@ -9,5 +10,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Credenciais invalidas" }, { status: 401 });
   }
 
-  return NextResponse.json({ ok: true, user: admin });
+  const response = NextResponse.json({ ok: true, user: admin });
+  response.headers.set("Set-Cookie", adminSessionCookie(createAdminSessionToken(admin.email)));
+  return response;
 }

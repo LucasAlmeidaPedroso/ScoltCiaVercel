@@ -8,13 +8,27 @@ export function MensagensView({ messages: seed, quickReplies }: { messages: Mess
   const [list, setList] = useState<Message[]>(seed);
   const [text, setText] = useState("");
 
-  function send(value: string) {
+  async function send(value: string) {
     const content = value.trim();
     if (!content) return;
+    const previousText = text;
+    setText("");
+
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    setList((prev) => [...prev, { id: prev.length + 1, from: "tutor", author: "Voce", text: content, time }]);
-    setText("");
+    const optimistic = { id: Date.now(), from: "tutor", author: "Voce", text: content, time } satisfies Message;
+    setList((prev) => [...prev, optimistic]);
+
+    const response = await fetch("/api/tutor/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: content })
+    }).catch(() => null);
+
+    if (!response?.ok) {
+      setList((prev) => prev.filter((item) => item.id !== optimistic.id));
+      setText(previousText || content);
+    }
   }
 
   return (
@@ -42,13 +56,13 @@ export function MensagensView({ messages: seed, quickReplies }: { messages: Mess
 
         <div className="tutor-quick-replies">
           {quickReplies.map((q) => (
-            <button key={q} onClick={() => send(q)}>{q}</button>
+            <button key={q} onClick={() => void send(q)}>{q}</button>
           ))}
         </div>
 
-        <form className="tutor-chat-input" onSubmit={(e) => { e.preventDefault(); send(text); }}>
-          <button type="button" className="tutor-chat-icon" aria-label="Anexar arquivo"><Paperclip size={18} /></button>
-          <button type="button" className="tutor-chat-icon" aria-label="Enviar imagem"><ImagePlus size={18} /></button>
+        <form className="tutor-chat-input" onSubmit={(e) => { e.preventDefault(); void send(text); }}>
+          <button type="button" className="tutor-chat-icon" aria-label="Anexar arquivo" disabled><Paperclip size={18} /></button>
+          <button type="button" className="tutor-chat-icon" aria-label="Enviar imagem" disabled><ImagePlus size={18} /></button>
           <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Escreva uma mensagem..." />
           <button type="submit" className="tutor-chat-send" aria-label="Enviar"><Send size={18} /></button>
         </form>

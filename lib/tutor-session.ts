@@ -7,7 +7,11 @@ export const TUTOR_COOKIE = "scoltcia_tutor";
 const MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 dias
 
 function getSecret() {
-  return process.env.TUTOR_SESSION_SECRET || "scoltcia-tutor-session-fallback-2026";
+  const secret = process.env.TUTOR_SESSION_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error("TUTOR_SESSION_SECRET is required in production.");
+  }
+  return secret || "scoltcia-tutor-session-local-dev";
 }
 
 function sign(payload: string) {
@@ -40,9 +44,9 @@ export function readSessionToken(token: string | undefined | null): string | nul
 }
 
 export function sessionCookie(token: string) {
-  return `${TUTOR_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_SECONDS}`;
+  return `${TUTOR_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
 export function clearCookie() {
-  return `${TUTOR_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${TUTOR_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }

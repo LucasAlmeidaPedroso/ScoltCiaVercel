@@ -568,6 +568,22 @@ textarea { resize: vertical; }
   background: linear-gradient(135deg, #14bbb0, #8f5fe8);
   font-weight: 900;
 }
+.admin-profile button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #edf1f7;
+  border-radius: 10px;
+  background: #fff;
+  color: #e84f7a;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.admin-profile button:hover {
+  background: #fff0f5;
+  transform: translateY(-1px);
+}
 .admin-nav {
   display: grid;
   align-content: start;
@@ -6126,10 +6142,10 @@ textarea { resize: vertical; }
 
 /* Buttons */
 .tutor-primary-btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 0; border-radius: 14px; font-size: 14px; font-weight: 900; color: #fff; background: linear-gradient(135deg, var(--aqua), var(--aqua-dark)); box-shadow: 0 12px 26px rgba(24, 185, 177, .3); cursor: pointer; transition: transform .15s; }
-.tutor-primary-btn:hover { transform: translateY(-2px); }
+.tutor-primary-btn:hover:not(:disabled) { transform: translateY(-2px); }
 .tutor-ghost-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid var(--line); border-radius: 11px; font-size: 13px; font-weight: 800; color: var(--muted); background: #fff; cursor: pointer; transition: all .15s; }
-.tutor-ghost-btn:hover { border-color: var(--aqua); color: var(--aqua-dark); }
-.tutor-ghost-btn.danger:hover { border-color: var(--pink); color: var(--pink); }
+.tutor-ghost-btn:hover:not(:disabled) { border-color: var(--aqua); color: var(--aqua-dark); }
+.tutor-ghost-btn.danger:hover:not(:disabled) { border-color: var(--pink); color: var(--pink); }
 
 /* ---------- Meu Pet ---------- */
 .tutor-pet-hero { position: relative; height: 200px; border-radius: 24px; background-size: cover; background-position: center; display: flex; align-items: flex-end; gap: 16px; padding: 20px; }

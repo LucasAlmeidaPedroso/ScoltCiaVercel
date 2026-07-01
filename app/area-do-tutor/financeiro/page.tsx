@@ -48,7 +48,7 @@ export default async function FinanceiroPage() {
                     <td><span className="tutor-method"><Icon size={14} /> {inv.method}</span></td>
                     <td>R$ {inv.value}</td>
                     <td><span className={`tutor-status-badge ${statusCls[inv.status]}`}><span className="tutor-dot" /> {inv.status}</span></td>
-                    <td><button className="tutor-ghost-btn"><Download size={14} /> Baixar</button></td>
+                    <td><button className="tutor-ghost-btn" disabled><Download size={14} /> Baixar</button></td>
                   </tr>
                 );
               })}

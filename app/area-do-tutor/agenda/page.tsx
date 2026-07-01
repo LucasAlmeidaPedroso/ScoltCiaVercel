@@ -54,8 +54,8 @@ export default async function AgendaPage() {
                 </div>
                 <span className={`tutor-status-badge ${statusCls[item.status]}`}><span className="tutor-dot" /> {item.status}</span>
                 <div className="tutor-agenda-actions">
-                  <button className="tutor-ghost-btn"><RotateCcw size={14} /> Reagendar</button>
-                  <button className="tutor-ghost-btn danger"><X size={14} /> Cancelar</button>
+                  <button className="tutor-ghost-btn" disabled><RotateCcw size={14} /> Reagendar</button>
+                  <button className="tutor-ghost-btn danger" disabled><X size={14} /> Cancelar</button>
                 </div>
               </article>
             ))}

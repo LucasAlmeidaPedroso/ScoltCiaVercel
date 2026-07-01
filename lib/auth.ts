@@ -236,6 +236,12 @@ export async function requireTutor(request: Request) {
 }
 
 export async function requireAdmin(request: Request) {
+  const { readAdminSessionToken, ADMIN_COOKIE } = await import("./admin-session");
+  const cookie = request.headers.get("cookie") || "";
+  const match = cookie.match(new RegExp(`${ADMIN_COOKIE}=([^;]+)`));
+  const sessionEmail = readAdminSessionToken(match ? decodeURIComponent(match[1]) : null);
+  if (sessionEmail) return verifyAdminEmail(sessionEmail);
+
   const authorization = request.headers.get("authorization") || "";
   const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
 
@@ -243,8 +249,5 @@ export async function requireAdmin(request: Request) {
     return verifyAdminAccessToken(accessToken);
   }
 
-  const email = request.headers.get("x-admin-email") || "";
-  const password = request.headers.get("x-admin-password") || "";
-  const admin = await verifyAdminCredentials(email, password);
-  return admin;
+  return null;
 }

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, Bell, CalendarCheck, CalendarDays, Cake, Check, CheckCircle2, ChevronRight, ClipboardCheck, Clock, CreditCard, Download, Edit3, Eye, EyeOff, Filter, Gamepad2, Heart, Home, LayoutDashboard, Lock, LogOut, Mail, MoreVertical, Package, PawPrint, Plus, Scissors, Search, ShieldCheck, Star, Trash2, UserRound, Users, Utensils, X } from "lucide-react";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import type { AdminRecord, AdminRecordPayload, AppUser, DaycareSettings, PetOption, PetPayload, Reservation, ReservationPayload, Tutor, TutorPayload, UserPayload } from "@/lib/types";
@@ -2146,7 +2146,7 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
 }
 
 export function AdminPanel({ pets, reservations, settings }: Props) {
-  const [email, setEmail] = useState("lucasalmeidapedroso@gmail.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accessToken, setAccessToken] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -2193,10 +2193,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       "Content-Type": "application/json",
       ...(accessToken ? {
         "Authorization": `Bearer ${accessToken}`
-      } : {
-        "x-admin-email": email,
-        "x-admin-password": password
-      })
+      } : {})
     };
   }
 
@@ -2366,6 +2363,14 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         redirectTo: `${window.location.origin}/admin`
       }
     });
+  }
+
+  async function logoutAdmin() {
+    await fetch("/api/admin/logout", { method: "POST" }).catch(() => {});
+    setUnlocked(false);
+    setPassword("");
+    setAccessToken("");
+    setUsers([]);
   }
 
   async function updateDashboardStatus(id: number, status: string) {
@@ -2698,8 +2703,8 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         </nav>
         <div className="admin-profile">
           <div className="admin-profile-photo">M</div>
-          <div><strong>Marina Souza</strong><span>Administrador</span></div>
-          <ChevronRight size={16} />
+          <div><strong>{adminName}</strong><span>Administrador</span></div>
+          <button type="button" onClick={logoutAdmin} aria-label="Sair do painel"><LogOut size={16} /></button>
         </div>
       </aside>
 

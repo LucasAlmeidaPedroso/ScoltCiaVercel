@@ -27,9 +27,11 @@ http://localhost:3000
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
+ADMIN_SESSION_SECRET=...
+TUTOR_SESSION_SECRET=...
 ```
 
-Sem Supabase configurado, o projeto usa dados demo para visualizacao.
+Sem Supabase configurado, o projeto usa dados demo apenas em desenvolvimento local.
 
 ## Deploy na Vercel
 
@@ -44,8 +46,21 @@ Build Command: npm run build
 Output Directory: .next
 ```
 
-4. Adicione as variaveis de ambiente do Supabase.
+4. Adicione as variaveis de ambiente do Supabase e os secrets de sessao.
 5. Deploy.
+
+## Criar primeiro admin
+
+Depois de rodar o SQL do Supabase e configurar as variaveis localmente, crie o primeiro usuario admin sem gravar senha no repositorio:
+
+```powershell
+$env:NEXT_PUBLIC_SUPABASE_URL="..."
+$env:SUPABASE_SERVICE_ROLE_KEY="..."
+$env:ADMIN_NAME="Seu Nome"
+$env:ADMIN_EMAIL="seu@email.com"
+$env:ADMIN_PASSWORD="senha-forte-temporaria"
+npm run create-admin
+```
 
 ## Admin
 
@@ -55,14 +70,7 @@ Acesse:
 /admin
 ```
 
-Usuario inicial criado pelo SQL:
-
-```txt
-lucasalmeidapedroso@gmail.com
-!Levi@2023
-```
-
-Depois do primeiro acesso, use o painel para cadastrar outros usuarios da equipe.
+Depois do primeiro acesso, use o painel para cadastrar outros usuarios da equipe e trocar senhas temporarias.
 
 ## Login com Google
 

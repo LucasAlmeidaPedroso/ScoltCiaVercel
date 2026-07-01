@@ -183,28 +183,11 @@ alter table admin_records     enable row level security;
 revoke all on pet_options from anon, authenticated;
 
 -- ---------------------------------------------------------------------
--- 5. SEED - usuario administrador inicial
---    Login do painel /admin:
---      e-mail: lucasalmeidapedroso@gmail.com
---      senha:  !Levi@2023
---    (hash scrypt 64 bytes do salt abaixo - validado contra lib/auth.ts)
+-- 5. ADMIN INICIAL
+--    O usuario administrador nao e criado por este schema para evitar senha
+--    versionada no repositorio. Apos aplicar o SQL, rode localmente:
+--      npm run create-admin
 -- ---------------------------------------------------------------------
-
-insert into app_users (name, email, role, password_salt, password_hash, is_active)
-values (
-  'Lucas Pedroso',
-  'lucasalmeidapedroso@gmail.com',
-  'admin',
-  'scoltcia-lucas-2026',
-  '293cadd0d05b6a718089980f7256eb44745f339733cc8a4b01be2410f8340ec1937bc3447e09dde1034a9c61213c3220b361587bb4b9acf40e93cc4385702084',
-  true
-)
-on conflict (email) do update set
-  name = excluded.name,
-  role = excluded.role,
-  password_salt = excluded.password_salt,
-  password_hash = excluded.password_hash,
-  is_active = true;
 
 -- ---------------------------------------------------------------------
 -- 6. SEED - configuracao da creche (linha unica, id = 1)
@@ -473,26 +456,10 @@ alter table ai_insights         enable row level security;
 alter table announcements       enable row level security;
 
 -- =====================================================================
--- 9. SEED - usuario TUTOR (login da Area do Tutor)
---    Login: mariana@email.com  /  Thor@2026
---    Vinculado ao cadastro de tutor "Mariana Alves".
+-- 9. AREA DO TUTOR
+--    Contas de tutor devem ser criadas pelo painel/admin ou por script privado,
+--    evitando senhas versionadas no repositorio.
 -- =====================================================================
-
-insert into app_users (name, email, role, password_salt, password_hash, is_active, tutor_id)
-select
-  'Mariana Alves',
-  'mariana@email.com',
-  'tutor',
-  'scoltcia-mariana-2026',
-  'cc9878680a870359e662fa92aa421f82ac764911bc92f2e5daaa6eff4118538175c63ec3c472ef7d0133a6040fd609d8dea2ece43018f83e1900fc88b27415a0',
-  true,
-  (select id from tutors where email = 'mariana@email.com')
-on conflict (email) do update set
-  role = 'tutor',
-  password_salt = excluded.password_salt,
-  password_hash = excluded.password_hash,
-  is_active = true,
-  tutor_id = excluded.tutor_id;
 
 -- =====================================================================
 -- 10. SEED - dados de exemplo do pet "Thor" (Area do Tutor)

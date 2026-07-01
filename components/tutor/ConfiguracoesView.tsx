@@ -22,26 +22,26 @@ export function ConfiguracoesView({ tutor }: { tutor: TutorProfile }) {
       <section className="tutor-section">
         <h3 className="tutor-section-title"><UserRound size={20} /> Dados pessoais</h3>
         <div className="tutor-form-grid">
-          <label><UserRound size={16} /><input defaultValue={tutor.name} placeholder="Nome completo" /></label>
-          <label><Mail size={16} /><input defaultValue={tutor.email} placeholder="E-mail" /></label>
-          <label><Phone size={16} /><input defaultValue={tutor.phone} placeholder="Telefone" /></label>
-          <label className="wide"><MapPin size={16} /><input defaultValue={tutor.address} placeholder="Endereco" /></label>
+          <label><UserRound size={16} /><input defaultValue={tutor.name} placeholder="Nome completo" readOnly /></label>
+          <label><Mail size={16} /><input defaultValue={tutor.email} placeholder="E-mail" readOnly /></label>
+          <label><Phone size={16} /><input defaultValue={tutor.phone} placeholder="Telefone" readOnly /></label>
+          <label className="wide"><MapPin size={16} /><input defaultValue={tutor.address} placeholder="Endereco" readOnly /></label>
         </div>
-        <button className="tutor-primary-btn"><Save size={16} /> Salvar alteracoes</button>
+        <button className="tutor-primary-btn" disabled><Save size={16} /> Salvar alteracoes</button>
       </section>
 
       <section className="tutor-section">
         <h3 className="tutor-section-title"><Lock size={20} /> Seguranca</h3>
         <div className="tutor-form-grid">
-          <label><Lock size={16} /><input type="password" defaultValue="********" placeholder="Nova senha" /></label>
-          <label><Lock size={16} /><input type="password" defaultValue="********" placeholder="Confirmar senha" /></label>
+          <label><Lock size={16} /><input type="password" placeholder="Nova senha" disabled /></label>
+          <label><Lock size={16} /><input type="password" placeholder="Confirmar senha" disabled /></label>
         </div>
         <div className="tutor-toggle-row">
           <div>
             <strong><ShieldCheck size={16} /> Autenticacao em duas etapas</strong>
             <small>Adicione uma camada extra de seguranca ao seu login.</small>
           </div>
-          <button className={`tutor-switch ${twoFA ? "on" : ""}`} onClick={() => setTwoFA((v) => !v)} aria-pressed={twoFA}>
+          <button className={`tutor-switch ${twoFA ? "on" : ""}`} onClick={() => setTwoFA((v) => !v)} aria-pressed={twoFA} disabled>
             <span />
           </button>
         </div>
@@ -57,6 +57,7 @@ export function ConfiguracoesView({ tutor }: { tutor: TutorProfile }) {
                 className={`tutor-switch ${prefs[p.key] ? "on" : ""}`}
                 onClick={() => setPrefs((prev) => ({ ...prev, [p.key]: !prev[p.key] }))}
                 aria-pressed={prefs[p.key]}
+                disabled
               >
                 <span />
               </button>

@@ -9,8 +9,6 @@ type Props = {
   settings?: DaycareSettings;
   admin?: boolean;
   adminAuth?: {
-    email: string;
-    password: string;
     accessToken?: string;
   };
 };
@@ -78,11 +76,8 @@ export function ReservationForm({ pets, reservations = [], settings = { max_capa
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(admin && adminAuth?.accessToken ? {
+        ...(adminAuth?.accessToken ? {
           "Authorization": `Bearer ${adminAuth.accessToken}`
-        } : admin && adminAuth ? {
-          "x-admin-email": adminAuth.email,
-          "x-admin-password": adminAuth.password
         } : {})
       },
       body: JSON.stringify({
