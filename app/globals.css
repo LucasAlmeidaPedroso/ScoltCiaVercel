@@ -4058,6 +4058,668 @@ body:has(.admin-app-route) .site-footer {
   box-shadow: 0 12px 26px rgba(255, 194, 45, .3);
 }
 
+/* =====================================================================
+   PUBLIC PRE-LOGIN APP MOCKUP
+   ===================================================================== */
+body:has(.prelogin-app-page) .site-header,
+body:has(.prelogin-app-page) .site-footer,
+body:has(.prelogin-app-page) .font-size-controls {
+  display: none;
+}
+
+body:has(.prelogin-app-page) {
+  background: #f3f0eb;
+}
+
+.prelogin-app-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 60px;
+  overflow: hidden;
+  padding: 20px;
+  background:
+    radial-gradient(circle at 6% 8%, rgba(230, 246, 246, .95), transparent 28%),
+    radial-gradient(circle at 98% 92%, rgba(250, 230, 250, .9), transparent 30%),
+    #f3f0eb;
+  color: #0f172a;
+}
+
+.prelogin-blob {
+  position: fixed;
+  width: min(60vw, 600px);
+  height: min(60vw, 600px);
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: .55;
+  pointer-events: none;
+}
+
+.prelogin-blob-a { top: -12%; left: -10%; background: #e6f6f6; }
+.prelogin-blob-b { right: -10%; bottom: -14%; background: #fae6fa; }
+
+.prelogin-desktop-copy {
+  position: relative;
+  z-index: 1;
+  width: min(480px, 40vw);
+  color: #2b394a;
+}
+
+.prelogin-desktop-copy > span {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 7px 14px;
+  color: #07797b;
+  background: #e6f6f6;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+}
+
+.prelogin-desktop-copy h1 {
+  margin: 20px 0 6px;
+  color: #07797b;
+  font-size: 52px;
+  line-height: 1.05;
+  font-weight: 900;
+}
+
+.prelogin-subtitle {
+  margin: 0 0 22px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.prelogin-desktop-copy p:not(.prelogin-subtitle) {
+  max-width: 440px;
+  margin: 0 0 28px;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1.62;
+  font-weight: 700;
+}
+
+.prelogin-feature-list {
+  display: grid;
+  gap: 14px;
+}
+
+.prelogin-feature-list strong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #0f172a;
+  font-size: 15px;
+}
+
+.prelogin-feature-list strong:before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #0ca5a8;
+  box-shadow: 0 0 0 6px #e6f6f6;
+}
+
+.prelogin-phone-shell {
+  position: relative;
+  z-index: 1;
+  width: 395px;
+  height: 844px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 12px solid #1e293b;
+  border-radius: 54px;
+  background: #1e293b;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, .4), 0 0 0 4px #475569;
+}
+
+.prelogin-phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 9;
+  width: 150px;
+  height: 28px;
+  transform: translateX(-50%);
+  border-bottom-right-radius: 20px;
+  border-bottom-left-radius: 20px;
+  background: #1e293b;
+}
+
+.prelogin-phone-screen {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 42px;
+  background: #fdfbf7;
+}
+
+.prelogin-app {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fdfbf7;
+}
+
+.prelogin-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 34px 18px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, .03);
+  background: rgba(253, 251, 247, .88);
+  backdrop-filter: blur(12px);
+}
+
+.prelogin-header-left,
+.prelogin-brand {
+  display: flex;
+  align-items: center;
+}
+
+.prelogin-header-left {
+  gap: 10px;
+  min-width: 0;
+}
+
+.prelogin-menu-btn,
+.prelogin-notification {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.prelogin-menu-btn {
+  color: #07797b;
+  background: transparent;
+}
+
+.prelogin-menu-btn:hover {
+  background: #e6f6f6;
+}
+
+.prelogin-brand {
+  min-width: 0;
+  gap: 8px;
+  color: #0f172a;
+}
+
+.prelogin-brand img {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  box-shadow: 0 8px 18px rgba(12, 165, 168, .18);
+}
+
+.prelogin-brand strong,
+.prelogin-brand small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prelogin-brand strong {
+  color: #07797b;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.prelogin-brand small {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.prelogin-notification {
+  position: relative;
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+}
+
+.prelogin-notification i {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid #fff;
+  border-radius: 50%;
+  background: #ff006e;
+}
+
+.prelogin-dropdown {
+  position: absolute;
+  top: 72px;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  padding: 14px 18px;
+  border-bottom-right-radius: 28px;
+  border-bottom-left-radius: 28px;
+  background: rgba(255, 255, 255, .92);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+  backdrop-filter: blur(16px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-18px);
+  transition: all .25s ease;
+}
+
+.prelogin-dropdown.active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.prelogin-dropdown nav {
+  display: grid;
+  gap: 6px;
+}
+
+.prelogin-dropdown a,
+.prelogin-dropdown button {
+  width: 100%;
+  min-height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  border: 0;
+  border-radius: 14px;
+  padding: 11px 15px;
+  color: #0f172a;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: left;
+  cursor: pointer;
+}
+
+.prelogin-dropdown a.active,
+.prelogin-dropdown button.active,
+.prelogin-dropdown a:hover,
+.prelogin-dropdown button:hover {
+  color: #07797b;
+  background: #e6f6f6;
+}
+
+.prelogin-views {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 13px 26px;
+  scrollbar-width: none;
+}
+
+.prelogin-views::-webkit-scrollbar {
+  display: none;
+}
+
+.prelogin-view {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 17px 5px 24px;
+  animation: preloginFade .28s ease both;
+}
+
+@keyframes preloginFade {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.prelogin-welcome span {
+  display: inline-block;
+  margin-bottom: 7px;
+  color: #07797b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.prelogin-welcome h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 21px;
+  line-height: 1.34;
+  font-weight: 900;
+}
+
+.prelogin-welcome p {
+  margin: 5px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 800;
+}
+
+.prelogin-hero-card {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .08);
+}
+
+.prelogin-hero-card:after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .2));
+}
+
+.prelogin-hero-card img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.prelogin-hero-card button {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #94a3b8;
+  background: rgba(255, 255, 255, .92);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .12);
+  cursor: pointer;
+}
+
+.prelogin-hero-card button.active {
+  color: #ff3b30;
+}
+
+.prelogin-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.prelogin-quick-actions a {
+  min-height: 72px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 5px;
+  border-radius: 12px;
+  padding: 11px 6px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+}
+
+.prelogin-quick-actions .teal { background: #0ca5a8; }
+.prelogin-quick-actions .yellow { color: #3b2800; background: #f8c02c; }
+.prelogin-quick-actions .green { background: #25d366; }
+
+.prelogin-diff-panel,
+.prelogin-about-card,
+.prelogin-contact-list a {
+  border: 1px solid rgba(15, 23, 42, .04);
+  border-radius: 28px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+}
+
+.prelogin-diff-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.prelogin-diff-panel > span {
+  color: #8338ec;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.prelogin-diff-panel h3,
+.prelogin-about-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 17px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.prelogin-diff-list {
+  display: grid;
+  gap: 14px;
+}
+
+.prelogin-diff-list article {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.prelogin-diff-list b,
+.prelogin-services-grid b,
+.prelogin-gallery-grid span,
+.prelogin-contact-list span {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+}
+
+.prelogin-diff-list b.teal,
+.prelogin-services-grid b.teal,
+.prelogin-gallery-grid span.teal,
+.prelogin-contact-list span {
+  color: #2ec4b6;
+  background: #e6f9f7;
+}
+
+.prelogin-diff-list b.purple,
+.prelogin-services-grid b.purple,
+.prelogin-gallery-grid span.purple {
+  color: #8338ec;
+  background: #f2eafd;
+}
+
+.prelogin-diff-list b.orange,
+.prelogin-services-grid b.orange,
+.prelogin-gallery-grid span.orange {
+  color: #f77f00;
+  background: #fff2e6;
+}
+
+.prelogin-diff-list b.pink,
+.prelogin-services-grid b.pink {
+  color: #ff006e;
+  background: #ffe6f0;
+}
+
+.prelogin-diff-list strong {
+  display: block;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.prelogin-diff-list p,
+.prelogin-about-card p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.prelogin-about-card {
+  padding: 18px 20px;
+}
+
+.prelogin-services-grid,
+.prelogin-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.prelogin-services-grid article,
+.prelogin-gallery-grid figure {
+  min-height: 172px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(15, 23, 42, .04);
+  border-radius: 20px;
+  padding: 18px 15px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .04);
+}
+
+.prelogin-services-grid strong {
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.prelogin-services-grid p {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.prelogin-gallery-grid figure {
+  min-height: 150px;
+  overflow: hidden;
+  padding: 0;
+}
+
+.prelogin-gallery-grid img,
+.prelogin-gallery-grid span {
+  width: 100%;
+  height: 112px;
+  border-radius: 0;
+  object-fit: cover;
+}
+
+.prelogin-gallery-grid span {
+  display: grid;
+  place-items: center;
+}
+
+.prelogin-gallery-grid figcaption {
+  padding: 0 12px 12px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.prelogin-contact-list {
+  display: grid;
+  gap: 12px;
+}
+
+.prelogin-contact-list a {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  color: #0f172a;
+}
+
+.prelogin-contact-list strong,
+.prelogin-contact-list small {
+  display: block;
+}
+
+.prelogin-contact-list strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.prelogin-contact-list small {
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 920px) {
+  .prelogin-app-page {
+    min-height: 100vh;
+    display: block;
+    padding: 0;
+    background: #fdfbf7;
+  }
+
+  .prelogin-desktop-copy,
+  .prelogin-phone-notch {
+    display: none;
+  }
+
+  .prelogin-phone-shell {
+    width: 100%;
+    height: 100vh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #fdfbf7;
+  }
+
+  .prelogin-phone-screen {
+    border-radius: 0;
+  }
+
+  .prelogin-header {
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+}
+
+@media (max-width: 370px) {
+  .prelogin-brand strong { font-size: 16px; }
+  .prelogin-brand small { font-size: 9px; }
+  .prelogin-quick-actions a { font-size: 10px; }
+}
+
 .home-page {
   overflow: hidden;
   color: #071d3a;
@@ -6621,20 +7283,22 @@ body:has(.admin-app-route) .site-footer {
   }
   .home-onboarding-brand {
     display: block;
-    padding: 20px 0 18px;
+    padding: 12px 0 16px;
     text-align: center;
   }
-  .home-onboarding-brand strong,
+  .home-onboarding-brand img,
   .home-onboarding-brand span {
     display: block;
   }
-  .home-onboarding-brand strong {
-    color: #009f98;
-    font-size: 19px;
-    font-weight: 900;
+  .home-onboarding-brand img {
+    width: 76px;
+    height: 76px;
+    margin: 0 auto;
+    border-radius: 21px;
+    box-shadow: 0 12px 24px rgba(24, 185, 177, .2);
   }
   .home-onboarding-brand span {
-    margin-top: 3px;
+    margin-top: 7px;
     color: #009f98;
     font-size: 11px;
     font-weight: 800;
@@ -6886,7 +7550,7 @@ body:has(.admin-app-route) .site-footer {
   }
   .home-onboarding-login {
     width: max-content;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 5px;
@@ -6896,8 +7560,7 @@ body:has(.admin-app-route) .site-footer {
     font-weight: 900;
   }
   .home-diffs {
-    padding: 20px 0 26px;
-    background: #f7fbff;
+    display: none;
   }
   .home-diff-grid {
     width: min(430px, calc(100vw - 28px));

@@ -1,0 +1,272 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import {
+  Bell,
+  CalendarDays,
+  Camera,
+  ChevronRight,
+  Heart,
+  Home,
+  Menu,
+  MessageCircle,
+  Moon,
+  PawPrint,
+  Phone,
+  Scissors,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  UserRound,
+  Wrench,
+  X
+} from "lucide-react";
+
+const tabs = [
+  { id: "home", label: "Inicio", icon: Home },
+  { id: "services", label: "Servicos", icon: PawPrint },
+  { id: "gallery", label: "Galeria", icon: Camera },
+  { id: "contact", label: "Contato", icon: Phone },
+  { id: "tutor", label: "Area do Tutor", icon: UserRound, href: "/area-do-tutor" },
+  { id: "admin", label: "Administracao", icon: Wrench, href: "/admin" }
+];
+
+const services = [
+  {
+    title: "Creche/daycare",
+    text: "Socializacao assistida, recreacao e descanso com supervisao.",
+    icon: Home,
+    tone: "teal"
+  },
+  {
+    title: "Hospedagem",
+    text: "Pernoite com rotina de atividades, carinho e acompanhamento proximo.",
+    icon: Moon,
+    tone: "purple"
+  },
+  {
+    title: "Banho e tosa",
+    text: "Cuidado de higiene integrado a rotina e bem-estar do dia.",
+    icon: Scissors,
+    tone: "orange"
+  },
+  {
+    title: "Relatorio diario",
+    text: "Acompanhe alimentacao, humor, atividades, fotos e check list do pet.",
+    icon: Stethoscope,
+    tone: "pink"
+  }
+];
+
+const differentials = [
+  {
+    title: "Ambiente seguro",
+    text: "Monitoramento ativo e equipe altamente treinada.",
+    icon: ShieldCheck,
+    tone: "teal"
+  },
+  {
+    title: "Muito carinho",
+    text: "Atencao e carinho individualizado todos os dias.",
+    icon: Heart,
+    tone: "purple"
+  },
+  {
+    title: "Diversao garantida",
+    text: "Atividades planejadas para gastar energia de forma saudavel.",
+    icon: Sparkles,
+    tone: "orange"
+  },
+  {
+    title: "Relatorios diarios",
+    text: "Acompanhe tudo em tempo real com fotos e relatorios de rotina.",
+    icon: Camera,
+    tone: "pink"
+  }
+];
+
+const contacts = [
+  { name: "Sandra", phone: "(11) 98413-0296", href: "https://wa.me/5511984130296" },
+  { name: "Carina", phone: "(11) 97755-2805", href: "https://wa.me/5511977552805" }
+];
+
+export function PublicPreLoginApp() {
+  const [activeTab, setActiveTab] = useState("home");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [favorite, setFavorite] = useState(false);
+
+  const openTab = (id: string) => {
+    setActiveTab(id);
+    setMenuOpen(false);
+  };
+
+  return (
+    <main className="prelogin-app-page">
+      <span className="prelogin-blob prelogin-blob-a" />
+      <span className="prelogin-blob prelogin-blob-b" />
+
+      <section className="prelogin-desktop-copy" aria-label="Resumo Scolt&Cia">
+        <span>Redesign mobile</span>
+        <h1>Scolt&Cia</h1>
+        <p className="prelogin-subtitle">Day Care & Hospedagem de luxo</p>
+        <p>Experiencia de app antes do login, com menu suspenso no topo, conteudo amplo e atalhos claros para tutor, contato e reserva.</p>
+        <div className="prelogin-feature-list">
+          <strong>Menu suspenso no topo esquerdo</strong>
+          <strong>Area de conteudo ampliada</strong>
+          <strong>Transicoes leves entre secoes</strong>
+        </div>
+      </section>
+
+      <section className="prelogin-phone-shell" aria-label="Aplicativo Scolt&Cia">
+        <div className="prelogin-phone-notch" />
+        <div className="prelogin-phone-screen">
+          <div className="prelogin-app">
+            <header className="prelogin-header">
+              <div className="prelogin-header-left">
+                <button className="prelogin-menu-btn" type="button" onClick={() => setMenuOpen((value) => !value)} aria-label="Abrir menu">
+                  {menuOpen ? <X size={21} /> : <Menu size={22} />}
+                </button>
+                <Link href="/" className="prelogin-brand" onClick={() => openTab("home")}>
+                  <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={42} height={42} />
+                  <span><strong>Scolt&Cia</strong><small>Day Care e Hospedagem</small></span>
+                </Link>
+              </div>
+              <button className="prelogin-notification" type="button" aria-label="Notificacoes">
+                <Bell size={18} />
+                <i />
+              </button>
+            </header>
+
+            <div className={`prelogin-dropdown ${menuOpen ? "active" : ""}`}>
+              <nav aria-label="Menu publico">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  if (tab.href) {
+                    return (
+                      <Link className={activeTab === tab.id ? "active" : ""} href={tab.href} key={tab.id} onClick={() => setMenuOpen(false)}>
+                        <Icon size={19} />
+                        {tab.label}
+                      </Link>
+                    );
+                  }
+                  return (
+                    <button className={activeTab === tab.id ? "active" : ""} type="button" key={tab.id} onClick={() => openTab(tab.id)}>
+                      <Icon size={19} />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <div className="prelogin-views">
+              {activeTab === "home" && (
+                <section className="prelogin-view">
+                  <div className="prelogin-welcome">
+                    <span>Day Care, Hospedagem e Cuidado Diario</span>
+                    <h2>Um dia alegre, seguro e cheio de afeto para o seu cachorro gastar energia, socializar e voltar para casa feliz.</h2>
+                  </div>
+
+                  <div className="prelogin-hero-card">
+                    <Image src="/img/prelogin-hero-dogs.png" alt="Dois cachorrinhos felizes da Scolt&Cia" width={900} height={600} priority />
+                    <button className={favorite ? "active" : ""} type="button" onClick={() => setFavorite((value) => !value)} aria-label="Favoritar">
+                      <Heart size={22} fill={favorite ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+
+                  <div className="prelogin-quick-actions">
+                    <Link className="teal" href="/contato"><CalendarDays size={18} /> Agendar visita</Link>
+                    <Link className="yellow" href="/reserva"><PawPrint size={18} /> Fazer reserva</Link>
+                    <a className="green" href="https://wa.me/5511984130296"><MessageCircle size={18} /> WhatsApp</a>
+                  </div>
+
+                  <div className="prelogin-diff-panel">
+                    <span>Diferenciais</span>
+                    <h3>Organizacao de operacao, jeitinho de casa</h3>
+                    <div className="prelogin-diff-list">
+                      {differentials.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <article key={item.title}>
+                            <b className={item.tone}><Icon size={20} /></b>
+                            <div><strong>{item.title}</strong><p>{item.text}</p></div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="prelogin-about-card">
+                    <h3>Aqui seu pet e tratado como familia!</h3>
+                    <p>Rotina leve, organizada e afetiva para que cada caozinho tenha seguranca, recreacao e muito carinho.</p>
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "services" && (
+                <section className="prelogin-view">
+                  <div className="prelogin-welcome">
+                    <h2>Nossos Servicos</h2>
+                    <p>Escolha uma opcao para conhecer melhor o cuidado da Scolt&Cia.</p>
+                  </div>
+                  <div className="prelogin-services-grid">
+                    {services.map((service) => {
+                      const Icon = service.icon;
+                      return (
+                        <article key={service.title}>
+                          <b className={service.tone}><Icon size={28} /></b>
+                          <strong>{service.title}</strong>
+                          <p>{service.text}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "gallery" && (
+                <section className="prelogin-view">
+                  <div className="prelogin-welcome">
+                    <h2>Nossa Galeria</h2>
+                    <p>Flagrantes de carinho, descanso e brincadeiras por aqui.</p>
+                  </div>
+                  <div className="prelogin-gallery-grid">
+                    <figure><Image src="/img/prelogin-hero-dogs.png" alt="Scolt e amigos" width={420} height={320} /><figcaption>Scolt & Pipoca</figcaption></figure>
+                    <figure><span className="teal"><PawPrint size={34} /></span><figcaption>Hora da piscina</figcaption></figure>
+                    <figure><span className="orange"><Sparkles size={34} /></span><figcaption>Brincadeiras</figcaption></figure>
+                    <figure><span className="purple"><Moon size={34} /></span><figcaption>Hora do soninho</figcaption></figure>
+                  </div>
+                </section>
+              )}
+
+              {activeTab === "contact" && (
+                <section className="prelogin-view">
+                  <div className="prelogin-welcome">
+                    <h2>Contato</h2>
+                    <p>Fale diretamente com nossa equipe ou venha nos visitar.</p>
+                  </div>
+                  <div className="prelogin-contact-list">
+                    {contacts.map((contact) => (
+                      <a href={contact.href} key={contact.name}>
+                        <span><UserRound size={22} /></span>
+                        <div><strong>{contact.name}</strong><small>{contact.phone}</small></div>
+                        <Phone size={18} />
+                      </a>
+                    ))}
+                    <a href="https://www.google.com/maps/search/?api=1&query=Rua%20Engenheiro%20Ernesto%20Markgraf%2C%20221%20Sao%20Paulo%20SP" target="_blank" rel="noopener noreferrer">
+                      <span><Home size={22} /></span>
+                      <div><strong>Scolt&Cia HQ</strong><small>Rua Engenheiro Ernesto Markgraf, 221</small></div>
+                      <ChevronRight size={18} />
+                    </a>
+                  </div>
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
