@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "create-admin": "node scripts/create-admin.mjs",
+    "reset-admin": "node scripts/create-admin.mjs",
     "lint": "next lint"
   },
   "dependencies": {
