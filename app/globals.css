@@ -4544,6 +4544,23 @@ body:has(.prelogin-app-page) {
   font-weight: 800;
 }
 
+.prelogin-visit-modal > .prelogin-reservation-hint {
+  max-width: none;
+  margin: -6px 0 16px;
+  border: 1px solid rgba(12, 165, 168, .16);
+  border-radius: 14px;
+  padding: 10px 12px;
+  color: #405672;
+  background: #e6f9f7;
+}
+
+.prelogin-reservation-hint a {
+  color: #07797b;
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .prelogin-visit-form,
 .prelogin-visit-form label {
   display: grid;

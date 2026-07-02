@@ -354,7 +354,7 @@ export function PublicPreLoginApp() {
                       </label>
                     </fieldset>
 
-                    <button className="prelogin-visit-submit" type="submit">Confirmar Agendamento</button>
+                    <button className="prelogin-visit-submit" type="submit">Solicitar Agendamento</button>
                   </form>
                 </div>
               </div>
@@ -368,6 +368,9 @@ export function PublicPreLoginApp() {
                   </button>
                   <h2 id="reservation-modal-title">Fazer Reserva</h2>
                   <p>Preencha os dados principais para nossa equipe confirmar a disponibilidade.</p>
+                  <p className="prelogin-reservation-hint">
+                    Se voce ja possui cadastro, faca a reserva atraves da <Link href="/area-do-tutor/agenda">area do tutor</Link>.
+                  </p>
 
                   <form className="prelogin-visit-form" onSubmit={submitReservation}>
                     <label>
