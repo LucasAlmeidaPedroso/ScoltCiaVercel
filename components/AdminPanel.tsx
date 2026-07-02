@@ -2364,10 +2364,33 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [maxCapacity] = useState(settings.max_capacity);
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
   const [reservationCreateSignal, setReservationCreateSignal] = useState(0);
+  const [quickCheckinOpen, setQuickCheckinOpen] = useState(false);
+  const [quickCheckinPetId, setQuickCheckinPetId] = useState("");
+  const [quickCheckinForm, setQuickCheckinForm] = useState<ReservationPayload>({
+    tutor_name: "",
+    phone: "",
+    email: "",
+    pet_name: "",
+    breed: "",
+    size: "",
+    service: defaultServiceForUnit("creche"),
+    entry_date: localDateKey(),
+    exit_date: "",
+    expected_time: new Date().toTimeString().slice(0, 5),
+    exit_time: "",
+    notes: "Check-in avulso de ultima hora"
+  });
   const loadingTimerRef = useRef<number>();
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
   const operationalItems = useMemo(() => items.filter((item) => reservationVisibleInUnit(item, activeUnit)), [items, activeUnit]);
   const unitAdminRecords = useMemo(() => adminRecords.filter((record) => recordUnit(record, activeUnit) === activeUnit), [adminRecords, activeUnit]);
+  const quickScheduledToday = useMemo(() => {
+    const today = localDateKey();
+    const statuses = ["Aguardando aprovacao", "Pendente", "Confirmada"];
+    return operationalItems
+      .filter((item) => item.entry_date === today && statuses.includes(item.status))
+      .sort((a, b) => (a.expected_time || "").localeCompare(b.expected_time || ""));
+  }, [operationalItems]);
 
   function showAdminLoading(label: string, duration = 650) {
     window.clearTimeout(loadingTimerRef.current);
@@ -2468,6 +2491,74 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     setReservationInitialStatus("all");
     goAdminPage("reservations", "Abrindo nova reserva...");
     setReservationCreateSignal((current) => current + 1);
+  }
+
+  function openQuickCheckinModal() {
+    if (currentUser && !canRead(currentUser, "checkin")) {
+      showAdminLoading("Sem permissao para check-in.");
+      return;
+    }
+    setQuickCheckinPetId("");
+    setQuickCheckinForm({
+      tutor_name: "",
+      phone: "",
+      email: "",
+      pet_name: "",
+      breed: "",
+      size: "",
+      service: defaultServiceForUnit(activeUnit),
+      entry_date: localDateKey(),
+      exit_date: "",
+      expected_time: new Date().toTimeString().slice(0, 5),
+      exit_time: "",
+      notes: "Check-in avulso de ultima hora"
+    });
+    setQuickCheckinOpen(true);
+  }
+
+  function applyQuickCheckinPet(petId: string) {
+    setQuickCheckinPetId(petId);
+    const pet = petItems.find((item) => String(item.id) === petId);
+    if (!pet) return;
+    setQuickCheckinForm((current) => ({
+      ...current,
+      pet_id: pet.id,
+      pet_name: pet.name,
+      tutor_name: pet.tutor_name || "",
+      phone: pet.tutor_phone || "",
+      email: pet.tutor_email || "",
+      breed: pet.breed || "",
+      size: pet.size || ""
+    }));
+  }
+
+  async function confirmQuickCheckin(item: Reservation) {
+    await updateReservationFields(item.id, {
+      status: "Em andamento",
+      notes: item.notes || "Check-in realizado pela patinha."
+    });
+    setSelectedId(item.id);
+    setQuickCheckinOpen(false);
+    goAdminPage("agenda", "Abrindo agenda e rotinas...");
+  }
+
+  async function saveQuickWalkIn(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const created = await createReservationFields({
+      ...quickCheckinForm,
+      entry_date: localDateKey(),
+      exit_date: quickCheckinForm.exit_date || null,
+      notes: quickCheckinForm.notes || "Check-in avulso de ultima hora"
+    });
+    if (created) {
+      await updateReservationFields(created.id, {
+        status: "Em andamento",
+        notes: quickCheckinForm.notes || "Check-in avulso de ultima hora"
+      });
+      setSelectedId(created.id);
+      setQuickCheckinOpen(false);
+      goAdminPage("agenda", "Abrindo agenda e rotinas...");
+    }
   }
 
   async function loadAdminRecords(headers = adminHeaders()) {
@@ -3020,10 +3111,57 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       <nav className="admin-mobile-bottom-nav" aria-label="Menu rapido da administracao">
         {canRead(currentUser, "dashboard") && <button type="button" className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando inicio...")}><Home size={20} /><span>Inicio</span></button>}
         {canRead(currentUser, "agenda") && <button type="button" className={adminPage === "agenda" ? "active" : ""} onClick={() => goAdminPage("agenda", "Carregando agenda...")}><CalendarDays size={20} /><span>Agenda</span></button>}
-        {canRead(currentUser, "checkin") && <button type="button" className={`admin-mobile-paw ${adminPage === "checkin" ? "active" : ""}`} onClick={() => goAdminPage("checkin", "Abrindo check-in...")} aria-label="Check-in dos dogs cadastrados"><PawPrint size={30} /><span>Check-in</span></button>}
+        {canRead(currentUser, "checkin") && <button type="button" className={`admin-mobile-paw ${quickCheckinOpen || adminPage === "checkin" ? "active" : ""}`} onClick={openQuickCheckinModal} aria-label="Check-in dos dogs cadastrados"><PawPrint size={30} /><span>Check-in</span></button>}
         {canRead(currentUser, "settings") && <button type="button" className={adminPage === "communications" ? "active" : ""} onClick={() => openModule("communications")}><Mail size={20} /><span>Mensagens</span></button>}
         {canRead(currentUser, "reservations") && <button type="button" className={adminPage === "reservations" ? "active" : ""} onClick={openNewReservationShortcut}><Plus size={20} /><span>Reserva</span></button>}
       </nav>
+
+      {quickCheckinOpen && (
+        <div className="admin-quick-checkin-backdrop" role="dialog" aria-modal="true" aria-labelledby="quick-checkin-title">
+          <section className="admin-quick-checkin-modal">
+            <div className="admin-quick-checkin-head">
+              <div>
+                <span><PawPrint size={16} /> Check-in rapido</span>
+                <h2 id="quick-checkin-title">Dogs agendados para hoje</h2>
+                <p>Escolha um pet agendado ou registre uma chegada avulsa de ultima hora.</p>
+              </div>
+              <button type="button" onClick={() => setQuickCheckinOpen(false)} aria-label="Fechar check-in rapido"><X size={18} /></button>
+            </div>
+
+            <div className="admin-quick-checkin-list">
+              {quickScheduledToday.map((item) => (
+                <button key={item.id} type="button" onClick={() => confirmQuickCheckin(item)}>
+                  <time>{item.expected_time || "--:--"}</time>
+                  <i>{item.pet_name.slice(0, 1)}</i>
+                  <span>
+                    <strong>{item.pet_name}</strong>
+                    <small>{item.tutor_name} - {serviceKind(item.service)}</small>
+                  </span>
+                  <em>Check-in</em>
+                </button>
+              ))}
+              {quickScheduledToday.length === 0 && <p>Nenhum dog agendado pendente para hoje.</p>}
+            </div>
+
+            <form className="admin-quick-walkin" onSubmit={saveQuickWalkIn}>
+              <h3>Check-in avulso de ultima hora</h3>
+              <label className="span-2">Pet cadastrado
+                <select value={quickCheckinPetId} onChange={(event) => applyQuickCheckinPet(event.target.value)}>
+                  <option value="">Selecionar pet cadastrado...</option>
+                  {petItems.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} - {pet.tutor_name || "Tutor nao informado"}</option>)}
+                </select>
+              </label>
+              <label>Pet<input required value={quickCheckinForm.pet_name} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, pet_name: event.target.value, pet_id: quickCheckinPetId ? current.pet_id : null }))} /></label>
+              <label>Tutor<input required value={quickCheckinForm.tutor_name} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, tutor_name: event.target.value }))} /></label>
+              <label>Telefone<input required value={quickCheckinForm.phone} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, phone: event.target.value }))} /></label>
+              <label>Servico<select value={quickCheckinForm.service} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(activeUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
+              <label>Horario<input type="time" required value={quickCheckinForm.expected_time || ""} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
+              <label className="span-2">Observacoes<textarea rows={3} value={quickCheckinForm.notes || ""} onChange={(event) => setQuickCheckinForm((current) => ({ ...current, notes: event.target.value }))} /></label>
+              <button className="span-2" type="submit"><Check size={18} /> Criar e iniciar rotina</button>
+            </form>
+          </section>
+        </div>
+      )}
 
       {adminPage === "dashboard" && (
         <AdminDashboardHome
