@@ -16,7 +16,7 @@ function sign(payload: string) {
 }
 
 function cookieFlags() {
-  return `Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  return `Path=/; HttpOnly; SameSite=Lax; Priority=High; Max-Age=${MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
 export function createAdminSessionToken(email: string) {
@@ -49,5 +49,5 @@ export function adminSessionCookie(token: string) {
 }
 
 export function clearAdminCookie() {
-  return `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  return `${ADMIN_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Priority=High; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }

@@ -19,6 +19,7 @@ export type PetOption = {
   medications?: string | null;
   important_notes?: string | null;
   veterinarian?: string | null;
+  service_prices?: Record<string, number> | null;
 };
 
 export type PetPayload = {
@@ -35,6 +36,7 @@ export type PetPayload = {
   important_notes?: string | null;
   veterinarian?: string | null;
   photo_url?: string | null;
+  service_prices?: Record<string, number> | null;
 };
 
 export type ReservationPayload = {
@@ -50,6 +52,7 @@ export type ReservationPayload = {
   exit_date?: string | null;
   expected_time?: string;
   exit_time?: string;
+  daily_rate?: number | null;
   notes?: string;
 };
 

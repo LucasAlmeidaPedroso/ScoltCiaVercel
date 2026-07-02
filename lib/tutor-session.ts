@@ -44,9 +44,9 @@ export function readSessionToken(token: string | undefined | null): string | nul
 }
 
 export function sessionCookie(token: string) {
-  return `${TUTOR_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  return `${TUTOR_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Priority=High; Max-Age=${MAX_AGE_SECONDS}${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }
 
 export function clearCookie() {
-  return `${TUTOR_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
+  return `${TUTOR_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Priority=High; Max-Age=0${process.env.NODE_ENV === "production" ? "; Secure" : ""}`;
 }

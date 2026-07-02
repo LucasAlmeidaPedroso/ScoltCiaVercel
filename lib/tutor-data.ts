@@ -63,7 +63,8 @@ function nonEmpty<T>(rows: unknown[] | null | undefined, fallback: T[]): T[] {
 }
 
 async function resolveAccount() {
-  const token = cookies().get(TUTOR_COOKIE)?.value;
+  const cookieStore = await cookies();
+  const token = cookieStore.get(TUTOR_COOKIE)?.value;
   const email = readSessionToken(token);
   if (!email) return null;
   return getTutorByEmail(email);
@@ -124,7 +125,7 @@ function emptyBundle(): TutorData {
 export async function getTutorData(): Promise<TutorData> {
   // Le o cookie de sessao -> garante render dinamico por requisicao
   // (cada tutor ve apenas os proprios dados; nunca cacheia entre usuarios).
-  cookies();
+  await cookies();
 
   if (!hasSupabaseEnv()) return emptyBundle();
 

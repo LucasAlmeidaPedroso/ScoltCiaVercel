@@ -58,6 +58,7 @@ create table if not exists pets (
   important_notes text,
   veterinarian text,
   photo_url text,
+  service_prices jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -82,6 +83,7 @@ create table if not exists reservations (
   exit_date date,
   expected_time text,
   exit_time text,
+  daily_rate numeric,
   notes text,
   status text not null default 'Aguardando aprovacao',
   created_at timestamptz not null default now()
@@ -126,6 +128,9 @@ on conflict do nothing;
 --    Agrega o(s) tutor(es) de cada pet via tabela N:N pet_tutors.
 -- ---------------------------------------------------------------------
 
+alter table pets add column if not exists service_prices jsonb;
+alter table reservations add column if not exists daily_rate numeric;
+
 create or replace view pet_options as
 select
   pets.id,
@@ -145,6 +150,7 @@ select
   pets.medications,
   pets.important_notes,
   pets.veterinarian,
+  pets.service_prices,
   tutors.id as tutor_id,
   coalesce(tutor_links.tutor_ids, case when tutors.id is null then array[]::bigint[] else array[tutors.id] end) as tutor_ids,
   coalesce(tutor_links.tutor_address, tutors.address) as tutor_address
@@ -194,10 +200,12 @@ alter table app_users add column if not exists tutor_id bigint references tutors
 alter table app_users add column if not exists entities jsonb not null default '["creche"]'::jsonb;
 alter table app_users add column if not exists permissions jsonb;
 alter table reservations add column if not exists exit_time text;
+alter table reservations add column if not exists daily_rate numeric;
 alter table pets add column if not exists allergies text;
 alter table pets add column if not exists microchip text;
 alter table pets add column if not exists neutered boolean;
 alter table pets add column if not exists cover_url text;
+alter table pets add column if not exists service_prices jsonb;
 
 -- ---------------------------------------------------------------------
 -- 6. ADMIN INICIAL

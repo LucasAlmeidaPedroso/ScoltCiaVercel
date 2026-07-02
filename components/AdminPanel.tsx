@@ -101,6 +101,8 @@ const servicePrices: Record<string, number> = {
   Hospedagem: 150
 };
 
+const pricePlanServices = ["Day Care", "Hospedagem", "Banho e Tosa", "Atividade"] as const;
+
 type ModuleField = {
   key: string;
   label: string;
@@ -313,6 +315,26 @@ function serviceOptionsForUnit(unit: BusinessUnit) {
   return unit === "hotel" ? ["Hospedagem"] : ["Day Care", "Hospedagem", "Banho e Tosa", "Atividade"];
 }
 
+function servicePricePlans(value?: Record<string, number> | null) {
+  return Object.fromEntries(
+    Object.entries(value || {})
+      .map(([key, price]) => [serviceKind(key), Number(price)])
+      .filter(([, price]) => Number.isFinite(price) && Number(price) > 0)
+  ) as Record<string, number>;
+}
+
+function petDailyRate(pet: PetOption | undefined, service: string) {
+  const kind = serviceKind(service);
+  return servicePricePlans(pet?.service_prices)[kind] || null;
+}
+
+function reservationDailyRate(item: Reservation) {
+  const customRate = Number(item.daily_rate);
+  if (Number.isFinite(customRate) && customRate > 0) return customRate;
+  const kind = serviceKind(item.service);
+  return servicePrices[kind] || 85;
+}
+
 function defaultServiceForUnit(unit: BusinessUnit) {
   return unit === "hotel" ? "Hospedagem" : "Day Care";
 }
@@ -373,9 +395,7 @@ function reservationDays(item: Reservation) {
 }
 
 function reservationValue(item: Reservation) {
-  const kind = serviceKind(item.service);
-  const price = servicePrices[kind] || 85;
-  return price * reservationDays(item);
+  return reservationDailyRate(item) * reservationDays(item);
 }
 
 function statusClass(status: string) {
@@ -398,8 +418,8 @@ function serviceIconClass(service: string) {
   return "daycare";
 }
 
-type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "exit_time" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
-type PetPatch = Partial<Pick<PetPayload, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url" | "tutor_ids">>;
+type ReservationPatch = Partial<Pick<Reservation, "status" | "expected_time" | "exit_time" | "daily_rate" | "notes" | "exit_date" | "entry_date" | "service" | "pet_name" | "breed" | "size" | "tutor_name" | "phone" | "email">>;
+type PetPatch = Partial<Pick<PetPayload, "name" | "breed" | "size" | "sex" | "weight" | "birth_date" | "behavior" | "food_restrictions" | "medications" | "important_notes" | "veterinarian" | "photo_url" | "service_prices" | "tutor_ids">>;
 type TutorPatch = Partial<TutorPayload>;
 
 type TutorRecord = {
@@ -818,15 +838,18 @@ type AdminTutorsPageProps = {
   setSelectedTutorKey: (key: string) => void;
   onCreate: (payload: TutorPayload) => Promise<TutorRecord | null>;
   onPatch: (id: number, payload: TutorPatch) => Promise<void>;
+  onLgpdClose: (tutor: TutorRecord, confirmation: string) => Promise<boolean>;
 };
 
-function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTutorKey, onCreate, onPatch }: AdminTutorsPageProps) {
+function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTutorKey, onCreate, onPatch, onLgpdClose }: AdminTutorsPageProps) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [areaFilter, setAreaFilter] = useState("all");
   const [detail, setDetail] = useState<TutorRecord | null>(null);
   const [editing, setEditing] = useState<TutorRecord | null>(null);
   const [creating, setCreating] = useState(false);
+  const [lgpdTutor, setLgpdTutor] = useState<TutorRecord | null>(null);
+  const [lgpdConfirmation, setLgpdConfirmation] = useState("");
   const [form, setForm] = useState<TutorPayload>({ full_name: "", phone: "", whatsapp: "", email: "", address: "", emergency_contact: "" });
   const areas = Array.from(new Set(tutors.map((tutor) => tutorNeighborhood(tutor.address)).filter(Boolean))).sort();
   const selected = selectedTutorKey ? tutors.find((tutor) => tutor.key === selectedTutorKey) : undefined;
@@ -890,6 +913,17 @@ function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTu
     }
     setEditing(null);
     setCreating(false);
+  }
+
+  async function confirmLgpdClose(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!lgpdTutor) return;
+    const ok = await onLgpdClose(lgpdTutor, lgpdConfirmation);
+    if (ok) {
+      setLgpdTutor(null);
+      setLgpdConfirmation("");
+      setDetail(null);
+    }
   }
 
   return (
@@ -1002,8 +1036,25 @@ function AdminTutorsPage({ tutors, reservations, selectedTutorKey, setSelectedTu
               <button onClick={() => openEdit(detail)}><Edit3 size={16} />Editar tutor</button>
               <button><Clock size={16} />Historico completo</button>
               <a href={`https://wa.me/55${detail.phone.replace(/\D/g, "")}`} target="_blank" rel="noreferrer"><Mail size={16} />Enviar mensagem</a>
+              {detail.id && <button className="danger" onClick={() => { setLgpdTutor(detail); setLgpdConfirmation(""); }}><ShieldCheck size={16} />Encerrar LGPD</button>}
             </div>
           </aside>
+        </div>
+      )}
+
+      {lgpdTutor && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal lgpd-close-modal" onSubmit={confirmLgpdClose}>
+            <div className="reservation-detail-head"><h2>Encerrar LGPD</h2><button type="button" onClick={() => setLgpdTutor(null)}><X size={18} /></button></div>
+            <div className="lgpd-warning span-2">
+              <strong>{lgpdTutor.name}</strong>
+              <span>Esta acao desativa o acesso do tutor, remove pets e dados do portal, apaga vinculos sensiveis e anonimiza reservas historicas.</span>
+            </div>
+            <label className="span-2">Digite ENCERRAR LGPD para confirmar
+              <input required value={lgpdConfirmation} onChange={(event) => setLgpdConfirmation(event.target.value)} />
+            </label>
+            <button className="reject-action span-2" type="submit"><ShieldCheck size={18} />Encerrar e anonimizar dados</button>
+          </form>
         </div>
       )}
 
@@ -1084,7 +1135,8 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
       medications: "",
       important_notes: "",
       veterinarian: "",
-      photo_url: ""
+      photo_url: "",
+      service_prices: {}
     });
   }
 
@@ -1107,13 +1159,15 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
       medications: pet.medications || "",
       important_notes: pet.important_notes || "",
       veterinarian: pet.veterinarian || "",
-      photo_url: pet.photo_url || ""
+      photo_url: pet.photo_url || "",
+      service_prices: servicePricePlans(pet.service_prices)
     });
   }
 
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = { ...editForm, tutor_ids: selectedTutorIds, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null };
+    const prices = servicePricePlans(editForm.service_prices);
+    const payload = { ...editForm, service_prices: Object.keys(prices).length ? prices : null, tutor_ids: selectedTutorIds, birth_date: editForm.birth_date || null, weight: editForm.weight ? Number(editForm.weight) : null };
     if (editing) {
       await onPatch(editing.id, payload);
     } else {
@@ -1150,6 +1204,19 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
       setEditForm((current) => ({ ...current, photo_url: String(reader.result || "") }));
     };
     reader.readAsDataURL(file);
+  }
+
+  function updatePlanPrice(service: string, value: string) {
+    const price = Number(value);
+    setEditForm((current) => {
+      const prices = { ...servicePricePlans(current.service_prices) };
+      if (Number.isFinite(price) && price > 0) {
+        prices[serviceKind(service)] = price;
+      } else {
+        delete prices[serviceKind(service)];
+      }
+      return { ...current, service_prices: prices };
+    });
   }
 
   function openDetail(pet: PetOption) {
@@ -1235,7 +1302,7 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
                 <button onClick={() => setTab("notes")}><MoreVertical size={16} />Mais</button>
               </div>
               <div className="pet-tabs"><button className={tab === "info" ? "active" : ""} onClick={() => setTab("info")}>Informacoes</button><button className={tab === "docs" ? "active" : ""} onClick={() => setTab("docs")}>Documentos</button><button className={tab === "history" ? "active" : ""} onClick={() => setTab("history")}>Historico</button><button className={tab === "notes" ? "active" : ""} onClick={() => setTab("notes")}>Anotacoes</button></div>
-              {tab === "info" && <div className="pet-info-grid"><p><span>Tutor</span><strong>{detail.tutor_name || "-"}</strong></p><p><span>Data de nascimento</span><strong>{detail.birth_date ? dateLabel(detail.birth_date) : "-"}</strong></p><p><span>Telefone</span><strong>{detail.tutor_phone || "-"}</strong></p><p><span>Peso</span><strong>{detail.weight ? `${detail.weight} kg` : "-"}</strong></p><p><span>E-mail</span><strong>{detail.tutor_email || "-"}</strong></p><p><span>Sexo</span><strong>{detail.sex || "-"}</strong></p><p><span>Porte</span><strong>{detail.size || "-"}</strong></p><p><span>Veterinario</span><strong>{detail.veterinarian || "-"}</strong></p></div>}
+              {tab === "info" && <div className="pet-info-grid"><p><span>Tutor</span><strong>{detail.tutor_name || "-"}</strong></p><p><span>Data de nascimento</span><strong>{detail.birth_date ? dateLabel(detail.birth_date) : "-"}</strong></p><p><span>Telefone</span><strong>{detail.tutor_phone || "-"}</strong></p><p><span>Peso</span><strong>{detail.weight ? `${detail.weight} kg` : "-"}</strong></p><p><span>E-mail</span><strong>{detail.tutor_email || "-"}</strong></p><p><span>Sexo</span><strong>{detail.sex || "-"}</strong></p><p><span>Porte</span><strong>{detail.size || "-"}</strong></p><p><span>Veterinario</span><strong>{detail.veterinarian || "-"}</strong></p>{pricePlanServices.map((service) => <p key={service}><span>Plano {service}</span><strong>{petDailyRate(detail, service) ? money(petDailyRate(detail, service) || 0) : "Padrao"}</strong></p>)}</div>}
               {tab === "docs" && <div className="pet-note-box"><strong>Documentos e vacinas</strong><p>{detail.birth_date ? "Cadastro com data de nascimento informada." : "Cadastre data de nascimento e documentos para acompanhar vencimentos."}</p><p>{detail.photo_url ? "Foto cadastrada." : "Foto ainda nao cadastrada."}</p></div>}
               {tab === "history" && <div className="pet-activity-list">{reservations.filter((item) => item.pet_id === detail.id || item.pet_name.toLowerCase() === detail.name.toLowerCase()).slice(0, 5).map((item) => <article key={item.id}><span className={`reservation-service ${serviceIconClass(item.service)}`}>{serviceKind(item.service)}</span><strong>{dateLabel(item.entry_date)} as {item.expected_time || "--:--"}</strong></article>)}<button className="approve-action"><Plus size={16} />Nova atividade</button></div>}
               {tab === "notes" && <div className="pet-note-box"><strong>Informacoes importantes</strong>{petNotes(detail).length ? petNotes(detail).map((note) => <p key={note}>{note}</p>) : <p>Nenhuma anotacao importante cadastrada.</p>}</div>}
@@ -1255,6 +1322,14 @@ function AdminPetsPage({ pets, tutors, reservations, selectedPetId, setSelectedP
             <label>Sexo<select value={editForm.sex || ""} onChange={(event) => setEditForm((current) => ({ ...current, sex: event.target.value }))}><option value="">Nao informado</option><option>Macho</option><option>Femea</option></select></label>
             <label>Peso<input type="number" value={editForm.weight ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, weight: Number(event.target.value) }))} /></label>
             <label>Nascimento<input type="date" value={editForm.birth_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, birth_date: event.target.value }))} /></label>
+            <div className="pet-plan-prices span-2">
+              <div><strong>Planos personalizados</strong><span>Informe o valor da diaria por servico somente quando este pet tiver um preco especial.</span></div>
+              {pricePlanServices.map((service) => (
+                <label key={service}>{service}
+                  <input type="number" min="0" step="0.01" placeholder={`Padrao ${money(servicePrices[service])}`} value={servicePricePlans(editForm.service_prices)[service] ?? ""} onChange={(event) => updatePlanPrice(service, event.target.value)} />
+                </label>
+              ))}
+            </div>
             <div className="pet-tutor-picker span-2">
               <div className="pet-tutor-picker-head">
                 <div><strong>Tutores vinculados</strong><span>Selecione um ou mais tutores para este pet.</span></div>
@@ -1726,6 +1801,8 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
   const [detail, setDetail] = useState<Reservation | null>(null);
   const [editing, setEditing] = useState<Reservation | null>(null);
   const [editForm, setEditForm] = useState<ReservationPatch>({});
+  const [approvalReservation, setApprovalReservation] = useState<Reservation | null>(null);
+  const [approvalDailyRate, setApprovalDailyRate] = useState("");
   const [creating, setCreating] = useState(false);
   const [createPetMode, setCreatePetMode] = useState<"registered" | "unregistered">("registered");
   const [selectedCreatePetId, setSelectedCreatePetId] = useState("");
@@ -1741,6 +1818,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
     exit_date: "",
     expected_time: "08:00",
     exit_time: "",
+    daily_rate: servicePrices[serviceKind(initialService === "all" ? defaultServiceForUnit(businessUnit) : initialService)],
     notes: ""
   });
   const perPage = 8;
@@ -1794,6 +1872,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       exit_date: item.exit_date || "",
       expected_time: item.expected_time || "",
       exit_time: item.exit_time || "",
+      daily_rate: item.daily_rate ?? reservationDailyRate(item),
       notes: item.notes || ""
     });
   }
@@ -1817,6 +1896,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       exit_date: "",
       expected_time: "08:00",
       exit_time: "",
+      daily_rate: servicePrices[serviceKind(initialService === "all" ? defaultServiceForUnit(businessUnit) : initialService)],
       notes: ""
     });
   }
@@ -1837,7 +1917,8 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       email: pet.tutor_email || "",
       pet_name: pet.name,
       breed: pet.breed || "",
-      size: pet.size || "Pequeno"
+      size: pet.size || "Pequeno",
+      daily_rate: petDailyRate(pet, current.service) || servicePrices[serviceKind(current.service)] || 85
     }));
   }
 
@@ -1852,20 +1933,21 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       email: "",
       pet_name: "",
       breed: "",
-      size: "Pequeno"
+      size: "Pequeno",
+      daily_rate: servicePrices[serviceKind(current.service)] || 85
     }));
   }
 
   async function saveEdit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editing) return;
-    await onPatch(editing.id, { ...editForm, exit_date: editForm.exit_date || null });
+    await onPatch(editing.id, { ...editForm, daily_rate: editForm.daily_rate ? Number(editForm.daily_rate) : null, exit_date: editForm.exit_date || null });
     setEditing(null);
   }
 
   async function saveCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const created = await onCreate({ ...createForm, exit_date: createForm.exit_date || null });
+    const created = await onCreate({ ...createForm, daily_rate: createForm.daily_rate ? Number(createForm.daily_rate) : null, exit_date: createForm.exit_date || null });
     if (created) {
       setSelectedId(created.id);
       setCreating(false);
@@ -1875,6 +1957,20 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
 
   async function patchFromDetail(id: number, payload: ReservationPatch) {
     await onPatch(id, payload);
+    setDetail(null);
+  }
+
+  function openApproval(item: Reservation) {
+    const pet = pets.find((option) => option.id === item.pet_id || option.name.toLowerCase() === item.pet_name.toLowerCase());
+    setApprovalReservation(item);
+    setApprovalDailyRate(String(item.daily_rate || petDailyRate(pet, item.service) || servicePrices[serviceKind(item.service)] || 85));
+  }
+
+  async function confirmApproval(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!approvalReservation) return;
+    await onPatch(approvalReservation.id, { status: "Confirmada", daily_rate: approvalDailyRate ? Number(approvalDailyRate) : null });
+    setApprovalReservation(null);
     setDetail(null);
   }
 
@@ -1987,7 +2083,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
               </div>
               <div className="reservation-detail-section">
                 <h3>Informacoes da reserva</h3>
-                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)}</dd><dt>Horario de entrada</dt><dd>{detail.expected_time || "--:--"}</dd><dt>Horario de saida</dt><dd>{detail.exit_time || "Nao informado"}</dd><dt>Unidade</dt><dd>Scolt&amp;Cia</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)}</dd><dt>Valor estimado</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Nao informado</dd></dl>
+                <dl><dt>Data da reserva</dt><dd>{dateLabel(detail.created_at?.slice(0, 10) || detail.entry_date)}</dd><dt>Horario de entrada</dt><dd>{detail.expected_time || "--:--"}</dd><dt>Horario de saida</dt><dd>{detail.exit_time || "Nao informado"}</dd><dt>Unidade</dt><dd>Scolt&amp;Cia</dd><dt>Pacote</dt><dd>{serviceKind(detail.service)}</dd><dt>Valor da diaria</dt><dd>{money(reservationDailyRate(detail))}</dd><dt>Valor estimado</dt><dd>{money(reservationValue(detail))}</dd><dt>Status do pagamento</dt><dd>Nao informado</dd></dl>
               </div>
               <div className="reservation-detail-section">
                 <h3>Observacoes</h3>
@@ -1995,6 +2091,7 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
               </div>
               <div className="reservation-detail-actions">
                 <button className="edit" onClick={() => openEdit(detail)}><Edit3 size={16} />Editar reserva</button>
+                {["Aguardando aprovacao", "Pendente"].includes(detail.status) && <button onClick={() => openApproval(detail)}><Check size={16} />Aprovar reserva</button>}
                 <button onClick={() => patchFromDetail(detail.id, { status: "Em andamento" })}><CheckCircle2 size={16} />Check-in</button>
                 <button className="danger" onClick={() => patchFromDetail(detail.id, { status: "Cancelada" })}><Trash2 size={16} />Cancelar reserva</button>
               </div>
@@ -2040,7 +2137,11 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
                 <label>Porte<select value={createForm.size || "Pequeno"} onChange={(event) => setCreateForm((current) => ({ ...current, size: event.target.value }))}><option>Pequeno</option><option>Medio</option><option>Grande</option></select></label>
               </>
             )}
-            <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => ({ ...current, service: event.target.value, exit_date: event.target.value === "Hospedagem" ? current.exit_date || current.entry_date : "" }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
+            <label>Servico<select value={createForm.service} onChange={(event) => setCreateForm((current) => {
+              const pet = sortedPets.find((item) => item.id === current.pet_id);
+              return { ...current, service: event.target.value, daily_rate: petDailyRate(pet, event.target.value) || servicePrices[serviceKind(event.target.value)] || 85, exit_date: event.target.value === "Hospedagem" ? current.exit_date || current.entry_date : "" };
+            })}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
+            <label>Valor da diaria<input type="number" min="0" step="0.01" value={createForm.daily_rate ?? ""} onChange={(event) => setCreateForm((current) => ({ ...current, daily_rate: event.target.value ? Number(event.target.value) : null }))} /></label>
             <label>Entrada<input required type="date" value={createForm.entry_date} onChange={(event) => setCreateForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={createForm.exit_date || ""} onChange={(event) => setCreateForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
             <label>Horario de entrada<input type="time" value={createForm.expected_time || ""} onChange={(event) => setCreateForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
@@ -2060,12 +2161,30 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
             <label>E-mail<input value={editForm.email || ""} onChange={(event) => setEditForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Pet<input value={editForm.pet_name || ""} onChange={(event) => setEditForm((current) => ({ ...current, pet_name: event.target.value }))} /></label>
             <label>Servico<select value={editForm.service || defaultServiceForUnit(businessUnit)} onChange={(event) => setEditForm((current) => ({ ...current, service: event.target.value }))}>{serviceOptionsForUnit(businessUnit).map((option) => <option key={option}>{option}</option>)}</select></label>
+            <label>Valor da diaria<input type="number" min="0" step="0.01" value={editForm.daily_rate ?? ""} onChange={(event) => setEditForm((current) => ({ ...current, daily_rate: event.target.value ? Number(event.target.value) : null }))} /></label>
             <label>Entrada<input type="date" value={editForm.entry_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, entry_date: event.target.value }))} /></label>
             <label>Saida<input type="date" value={editForm.exit_date || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_date: event.target.value }))} /></label>
             <label>Horario de entrada<input type="time" value={editForm.expected_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, expected_time: event.target.value }))} /></label>
             <label>Horario de saida<input type="time" value={editForm.exit_time || ""} onChange={(event) => setEditForm((current) => ({ ...current, exit_time: event.target.value }))} /></label>
             <label className="span-2">Observacoes<textarea rows={4} value={editForm.notes || ""} onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))} /></label>
             <button className="approve-action span-2" type="submit"><Check size={18} />Salvar alteracoes</button>
+          </form>
+        </div>
+      )}
+
+      {approvalReservation && (
+        <div className="reservation-modal-backdrop">
+          <form className="reservation-modal reservation-approval-modal" onSubmit={confirmApproval}>
+            <div className="reservation-detail-head"><h2>Aprovar reserva</h2><button type="button" onClick={() => setApprovalReservation(null)}><X size={18} /></button></div>
+            <div className="reservation-autofill-card span-2">
+              <strong>{approvalReservation.pet_name}</strong>
+              <span>{serviceKind(approvalReservation.service)} - {reservationDays(approvalReservation)} diaria(s)</span>
+              <span>Tutor: {approvalReservation.tutor_name}</span>
+            </div>
+            <label className="span-2">Personalizar valor da diaria
+              <input type="number" min="0" step="0.01" value={approvalDailyRate} onChange={(event) => setApprovalDailyRate(event.target.value)} />
+            </label>
+            <button className="approve-action span-2" type="submit"><Check size={18} />Aprovar reserva</button>
           </form>
         </div>
       )}
@@ -2144,14 +2263,7 @@ function AdminDashboardHome({ reservations, pets, users, maxCapacity, adminName,
   const newClients = pets.filter((pet) => pet.created_at?.slice(0, 7) === today.slice(0, 7)).length;
   const occupancy = maxCapacity > 0 ? Math.round((todayReservations.length / maxCapacity) * 100) : 0;
   const satisfaction = reservations.length > 0 ? "4,8 / 5" : "-";
-  const estimatedRevenue = reservations.reduce((total, item) => {
-    const kind = serviceKind(item.service);
-    const start = new Date(`${item.entry_date}T12:00:00`);
-    const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
-    const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-    const price = servicePrices[kind] || 85;
-    return total + price * days;
-  }, 0);
+  const estimatedRevenue = reservations.filter(isBillableReservation).reduce((total, item) => total + reservationValue(item), 0);
   const activities = [
     ["08:00", isHotel ? "Ronda da hospedagem" : "Abertura da creche", isHotel ? `${activeHosting.length} hospede(s) ativo(s)` : "Equipe preparada para receber os pets", CheckCircle2],
     ["09:00", isHotel ? "Check-in Hotel" : "Day Care", isHotel ? `${todayReservations.length} chegada(s) prevista(s)` : `${dayCareToday.length} pet(s) programado(s)`, Activity],
@@ -2519,6 +2631,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   async function confirmQuickWalkInPet() {
     if (!quickWalkInPet) return;
     const now = new Date().toTimeString().slice(0, 5);
+    const service = defaultServiceForUnit(activeUnit);
     const created = await createReservationFields({
       pet_id: quickWalkInPet.id,
       tutor_name: quickWalkInPet.tutor_name || "Tutor nao informado",
@@ -2527,11 +2640,12 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       pet_name: quickWalkInPet.name,
       breed: quickWalkInPet.breed || "",
       size: quickWalkInPet.size || "",
-      service: defaultServiceForUnit(activeUnit),
+      service,
       entry_date: localDateKey(),
       exit_date: null,
       expected_time: now,
       exit_time: "",
+      daily_rate: petDailyRate(quickWalkInPet, service) || servicePrices[serviceKind(service)] || 85,
       notes: "Check-in avulso de ultima hora"
     });
     if (created) {
@@ -2561,19 +2675,15 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   function exportReport(kind: "reservas" | "daycare" | "hospedagem" | "financeiro") {
     const filteredItems = items.filter((item) => {
       if (!reservationVisibleInUnit(item, activeUnit)) return false;
+      if (kind === "financeiro" && !isBillableReservation(item)) return false;
       if (kind === "daycare") return serviceKind(item.service) === "Day Care";
       if (kind === "hospedagem") return serviceKind(item.service) === "Hospedagem";
       return true;
     });
     const rows = [
-      ["id", "pet", "tutor", "telefone", "email", "servico", "entrada", "saida", "horario_entrada", "horario_saida", "status", "valor_estimado"],
+      ["id", "pet", "tutor", "telefone", "email", "servico", "entrada", "saida", "horario_entrada", "horario_saida", "status", "valor_diaria", "valor_estimado"],
       ...filteredItems.map((item) => {
-        const kindName = serviceKind(item.service);
-        const start = new Date(`${item.entry_date}T12:00:00`);
-        const end = new Date(`${item.exit_date || item.entry_date}T12:00:00`);
-        const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1);
-        const price = servicePrices[kindName] || 85;
-        return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.exit_time || "", item.status, kind === "financeiro" ? String(price * days) : ""];
+        return [item.id, item.pet_name, item.tutor_name, item.phone, item.email || "", item.service, item.entry_date, item.exit_date || "", item.expected_time || "", item.exit_time || "", item.status, kind === "financeiro" ? String(reservationDailyRate(item)) : "", kind === "financeiro" ? String(reservationValue(item)) : ""];
       })
     ];
     const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -2857,6 +2967,50 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           tutor_address: updated.address || pet.tutor_address
         } : pet));
       }
+    } finally {
+      hideAdminLoading();
+    }
+  }
+
+  async function closeTutorLgpdRecord(tutor: TutorRecord, confirmation: string) {
+    if (!canWrite(currentUser, "clients")) {
+      showAdminLoading("Sem permissao para encerrar LGPD.");
+      return false;
+    }
+    if (!tutor.id) {
+      showAdminLoading("Tutor sem cadastro principal para LGPD.");
+      return false;
+    }
+    setAdminLoadingLabel("Encerrando dados LGPD...");
+    try {
+      const response = await fetch("/api/admin/lgpd", {
+        method: "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify({ tutor_id: tutor.id, confirmation })
+      });
+
+      if (!response.ok) return false;
+
+      const result = await response.json() as { pet_ids?: number[]; reservation_ids?: number[] };
+      const petIds = new Set((result.pet_ids || []).map(Number));
+      const reservationIds = new Set((result.reservation_ids || []).map(Number));
+
+      setExtraTutors((current) => current.filter((item) => item.id !== tutor.id));
+      setAllTutors((current) => current.filter((item) => item.id !== tutor.id));
+      setPetItems((current) => current.filter((pet) => !petIds.has(pet.id) && pet.tutor_id !== tutor.id && !(pet.tutor_ids || []).map(Number).includes(tutor.id!)));
+      setItems((current) => current.map((item) => reservationIds.has(item.id) ? {
+        ...item,
+        tutor_name: `Cliente encerrado LGPD #${tutor.id}`,
+        phone: "",
+        email: "",
+        pet_id: null,
+        pet_name: "Pet encerrado LGPD",
+        breed: "",
+        size: "",
+        notes: ""
+      } : item));
+      setSelectedTutorKey("");
+      return true;
     } finally {
       hideAdminLoading();
     }
@@ -3218,6 +3372,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           setSelectedTutorKey={setSelectedTutorKey}
           onCreate={createTutorRecord}
           onPatch={updateTutorRecord}
+          onLgpdClose={closeTutorLgpdRecord}
         />
       )}
 

@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { requireTutor } from "@/lib/auth";
 import { getSupabaseAdmin, hasSupabaseEnv } from "@/lib/supabase";
+import { cleanString, rateLimit, readJson, requireSameOrigin, jsonError } from "@/lib/security";
 
 export async function POST(request: Request) {
-  const { body } = await request.json();
-  const message = String(body || "").trim();
+  const originError = requireSameOrigin(request);
+  if (originError) return originError;
+  const limited = rateLimit(request, "tutor-message", 20, 60_000);
+  if (limited) return limited;
+
+  let payload: Record<string, unknown>;
+  try {
+    payload = await readJson<Record<string, unknown>>(request, 8_000);
+  } catch (error) {
+    return jsonError(error);
+  }
+
+  const message = cleanString(payload.body, 1200);
 
   if (!message) {
     return NextResponse.json({ error: "Mensagem vazia" }, { status: 400 });
