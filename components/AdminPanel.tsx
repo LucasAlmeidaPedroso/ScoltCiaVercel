@@ -65,9 +65,72 @@ const adminPermissionSet = Object.fromEntries(
   permissionGroups.map((permission) => [permission.key, "write"])
 ) as UserPermissions;
 
+const accessProfileModuleKey = "access_profiles";
+
+type AccessProfilePayload = {
+  role: AppUser["role"];
+  entities: BusinessEntity[];
+  permissions: UserPermissions | null;
+};
+
+type AccessProfile = {
+  id?: number;
+  title: string;
+  payload: AccessProfilePayload;
+  builtIn?: boolean;
+};
+
 function userPermissionSet(user?: AppUser | null) {
   if (user?.role === "admin") return adminPermissionSet;
   return { ...defaultPermissionSet, ...(user?.permissions || {}) };
+}
+
+function defaultAccessProfiles(): AccessProfile[] {
+  return [
+    { title: "Administrador", builtIn: true, payload: { role: "admin", entities: ["creche", "hotel"], permissions: null } },
+    { title: "Operacao completa", builtIn: true, payload: { role: "equipe", entities: ["creche", "hotel"], permissions: defaultPermissionSet } },
+    { title: "Tutor", builtIn: true, payload: { role: "tutor", entities: ["creche"], permissions: { ...defaultPermissionSet, dashboard: "read", reservations: "read", agenda: "read", pets: "read", clients: "none", users: "none", settings: "none" } } }
+  ];
+}
+
+function accessProfileFromRecord(record: AdminRecord): AccessProfile | null {
+  if (record.module_key !== accessProfileModuleKey) return null;
+  const payload = record.payload || {};
+  const role = payload.role === "admin" || payload.role === "tutor" ? payload.role : "equipe";
+  return {
+    id: record.id,
+    title: record.title,
+    payload: {
+      role,
+      entities: Array.isArray(payload.entities) ? normalizeProfileEntities(payload.entities) : ["creche"],
+      permissions: role === "admin" ? null : normalizeProfilePermissions(payload.permissions, role)
+    }
+  };
+}
+
+function normalizeProfileEntities(value: unknown): BusinessEntity[] {
+  const entities = (Array.isArray(value) ? value : ["creche"]).filter((item): item is BusinessEntity => item === "creche" || item === "hotel");
+  return entities.length ? Array.from(new Set(entities)) : ["creche"];
+}
+
+function normalizeProfilePermissions(value: unknown, role: AppUser["role"]): UserPermissions | null {
+  if (role === "admin") return null;
+  const source = typeof value === "object" && value ? value as UserPermissions : defaultPermissionSet;
+  return { ...defaultPermissionSet, ...source };
+}
+
+function samePermissions(a?: UserPermissions | null, b?: UserPermissions | null) {
+  return permissionGroups.every((permission) => (a?.[permission.key] || "none") === (b?.[permission.key] || "none"));
+}
+
+function matchingProfileId(user: AppUser, profiles: AccessProfile[]) {
+  const matched = profiles.find((profile) => {
+    if (profile.payload.role !== user.role) return false;
+    if (profile.payload.role === "admin") return true;
+    const sameEntities = normalizeProfileEntities(user.entities).sort().join("|") === normalizeProfileEntities(profile.payload.entities).sort().join("|");
+    return sameEntities && samePermissions(userPermissionSet(user), profile.payload.permissions);
+  });
+  return matched?.id ? String(matched.id) : matched?.title || "custom";
 }
 
 function canRead(user: AppUser | null, key: PermissionKey) {
@@ -2472,6 +2535,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [adminRecords, setAdminRecords] = useState<AdminRecord[]>([]);
   const [userForm, setUserForm] = useState<UserPayload>({ name: "", email: "", password: "", role: "equipe", entities: ["creche"], permissions: defaultPermissionSet });
+  const [selectedUserProfile, setSelectedUserProfile] = useState("Operacao completa");
+  const [profileForm, setProfileForm] = useState<AccessProfile>({ title: "", payload: { role: "equipe", entities: ["creche"], permissions: defaultPermissionSet } });
+  const [editingProfileId, setEditingProfileId] = useState<number | null>(null);
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
@@ -2484,6 +2550,10 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
   const operationalItems = useMemo(() => items.filter((item) => reservationVisibleInUnit(item, activeUnit)), [items, activeUnit]);
   const unitAdminRecords = useMemo(() => adminRecords.filter((record) => recordUnit(record, activeUnit) === activeUnit), [adminRecords, activeUnit]);
+  const accessProfiles = useMemo(() => {
+    const customProfiles = adminRecords.map(accessProfileFromRecord).filter((profile): profile is AccessProfile => Boolean(profile));
+    return [...defaultAccessProfiles(), ...customProfiles];
+  }, [adminRecords]);
   const quickScheduledToday = useMemo(() => {
     const today = localDateKey();
     const statuses = ["Aguardando aprovacao", "Pendente", "Confirmada"];
@@ -2569,6 +2639,73 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       ...current,
       permissions: { ...(current.permissions || defaultPermissionSet), [key]: level }
     }));
+  }
+
+  function profileKey(profile: AccessProfile) {
+    return profile.id ? String(profile.id) : profile.title;
+  }
+
+  function profileByKey(key: string) {
+    return accessProfiles.find((profile) => profileKey(profile) === key) || accessProfiles[1] || accessProfiles[0];
+  }
+
+  function applyProfileToUserForm(key: string) {
+    const profile = profileByKey(key);
+    setSelectedUserProfile(profileKey(profile));
+    setUserForm((current) => ({
+      ...current,
+      role: profile.payload.role,
+      entities: profile.payload.entities,
+      permissions: profile.payload.permissions || undefined
+    }));
+  }
+
+  function setProfilePermission(key: PermissionKey, level: PermissionLevel) {
+    setProfileForm((current) => ({
+      ...current,
+      payload: {
+        ...current.payload,
+        permissions: { ...(current.payload.permissions || defaultPermissionSet), [key]: level }
+      }
+    }));
+  }
+
+  function toggleProfileEntity(entity: BusinessEntity) {
+    setProfileForm((current) => {
+      const entities = current.payload.entities || [];
+      const next = entities.includes(entity) ? entities.filter((item) => item !== entity) : [...entities, entity];
+      return { ...current, payload: { ...current.payload, entities: next.length ? next : [entity] } };
+    });
+  }
+
+  function changeProfileRole(role: AppUser["role"]) {
+    setProfileForm((current) => ({
+      ...current,
+      payload: {
+        ...current.payload,
+        role,
+        permissions: role === "admin" ? null : current.payload.permissions || defaultPermissionSet
+      }
+    }));
+  }
+
+  function editAccessProfile(profile: AccessProfile) {
+    if (profile.builtIn || !profile.id) return;
+    setEditingProfileId(profile.id);
+    setProfileForm({
+      id: profile.id,
+      title: profile.title,
+      payload: {
+        role: profile.payload.role,
+        entities: profile.payload.entities,
+        permissions: profile.payload.role === "admin" ? null : { ...(profile.payload.permissions || defaultPermissionSet) }
+      }
+    });
+  }
+
+  function resetProfileForm() {
+    setEditingProfileId(null);
+    setProfileForm({ title: "", payload: { role: "equipe", entities: ["creche"], permissions: defaultPermissionSet } });
   }
 
   function openReservations(status = "all") {
@@ -3080,6 +3217,76 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
     }
   }
 
+  async function saveAccessProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (currentUser?.role !== "admin") {
+      setUserMessage("Apenas administradores podem salvar perfis.");
+      return;
+    }
+    const title = profileForm.title.trim();
+    if (!title) {
+      setUserMessage("Informe o nome do perfil.");
+      return;
+    }
+
+    const payload: AdminRecordPayload = {
+      module_key: accessProfileModuleKey,
+      title,
+      status: "Ativo",
+      payload: {
+        role: profileForm.payload.role,
+        entities: profileForm.payload.entities,
+        permissions: profileForm.payload.role === "admin" ? null : profileForm.payload.permissions || defaultPermissionSet
+      }
+    };
+
+    setAdminLoadingLabel(editingProfileId ? "Salvando perfil..." : "Criando perfil...");
+    try {
+      const response = await fetch("/api/admin/records", {
+        method: editingProfileId ? "PATCH" : "POST",
+        headers: adminHeaders(),
+        body: JSON.stringify(editingProfileId ? { id: editingProfileId, ...payload } : payload)
+      });
+
+      if (response.ok) {
+        const saved = await response.json();
+        setAdminRecords((current) => editingProfileId ? current.map((record) => record.id === editingProfileId ? { ...record, ...saved } : record) : [saved, ...current]);
+        resetProfileForm();
+        setUserMessage("Perfil salvo.");
+      } else {
+        setUserMessage("Nao foi possivel salvar o perfil.");
+      }
+    } finally {
+      hideAdminLoading();
+    }
+  }
+
+  async function deleteAccessProfile(profile: AccessProfile) {
+    if (!profile.id || profile.builtIn) return;
+    setAdminLoadingLabel("Removendo perfil...");
+    try {
+      const response = await fetch(`/api/admin/records?id=${profile.id}&module=${accessProfileModuleKey}`, {
+        method: "DELETE",
+        headers: adminHeaders()
+      });
+      if (response.ok) {
+        setAdminRecords((current) => current.filter((record) => record.id !== profile.id));
+        if (editingProfileId === profile.id) resetProfileForm();
+      }
+    } finally {
+      hideAdminLoading();
+    }
+  }
+
+  async function assignProfileToUser(user: AppUser, key: string) {
+    const profile = profileByKey(key);
+    await updateAdminUser(user.id, {
+      role: profile.payload.role,
+      entities: profile.payload.entities,
+      permissions: profile.payload.permissions
+    });
+  }
+
   async function createAdminUser(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (currentUser?.role !== "admin") {
@@ -3099,7 +3306,9 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
       if (response.ok) {
         const created = await response.json();
         setUsers((current) => [created, ...current]);
-        setUserForm({ name: "", email: "", password: "", role: "equipe", entities: ["creche"], permissions: defaultPermissionSet });
+        const defaultProfile = profileByKey("Operacao completa");
+        setSelectedUserProfile(profileKey(defaultProfile));
+        setUserForm({ name: "", email: "", password: "", role: defaultProfile.payload.role, entities: defaultProfile.payload.entities, permissions: defaultProfile.payload.permissions || undefined });
         setUserMessage("Usuario cadastrado.");
       } else {
         setUserMessage("Nao foi possivel cadastrar o usuario.");
@@ -3445,89 +3654,121 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         <section className="admin-main admin-legacy-panel">
           <header className="admin-topbar">
             <div>
-              <h1>Clientes e usuarios</h1>
-              <p>Gerencie acessos da equipe, tutores e administradores.</p>
+              <h1>Equipe e acessos</h1>
+              <p>Crie perfis de permissao e atribua os perfis aos usuarios.</p>
             </div>
           </header>
 
           <section id="usuarios-admin" className="admin-card">
-            <h2>Usuarios do sistema</h2>
-            <form className="user-permission-form" onSubmit={createAdminUser}>
-              <div className="user-form-grid">
-                <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
-                <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
-                <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
-                <select value={userForm.role} onChange={(event) => setUserForm((current) => ({ ...current, role: event.target.value as UserPayload["role"], permissions: event.target.value === "admin" ? adminPermissionSet : current.permissions || defaultPermissionSet }))}>
-                  <option value="equipe">Equipe</option>
-                  <option value="admin">Admin</option>
-                  <option value="tutor">Tutor</option>
-                </select>
-              </div>
+            <div className="access-layout">
+              <section className="access-profiles-panel">
+                <div className="access-section-head">
+                  <div>
+                    <h2>Perfis de acesso</h2>
+                    <p>Configure uma vez e aplique aos usuarios.</p>
+                  </div>
+                </div>
 
-              <div className="permission-section">
-                <strong>Entidade</strong>
-                <div className="entity-checks">
-                  {businessUnits.map((unit) => (
-                    <label key={unit.key}>
-                      <input type="checkbox" checked={(userForm.entities || []).includes(unit.key)} onChange={() => toggleUserFormEntity(unit.key)} />
-                      <span>{unit.title}</span>
-                    </label>
+                <form className="profile-form" onSubmit={saveAccessProfile}>
+                  <div className="profile-form-grid">
+                    <input required placeholder="Nome do perfil" value={profileForm.title} onChange={(event) => setProfileForm((current) => ({ ...current, title: event.target.value }))} />
+                    <select value={profileForm.payload.role} onChange={(event) => changeProfileRole(event.target.value as AppUser["role"])}>
+                      <option value="equipe">Equipe</option>
+                      <option value="admin">Admin</option>
+                      <option value="tutor">Tutor</option>
+                    </select>
+                  </div>
+
+                  <div className="permission-section">
+                    <strong>Entidades do perfil</strong>
+                    <div className="entity-checks">
+                      {businessUnits.map((unit) => (
+                        <label key={unit.key}>
+                          <input type="checkbox" checked={(profileForm.payload.entities || []).includes(unit.key)} disabled={profileForm.payload.role === "admin"} onChange={() => toggleProfileEntity(unit.key)} />
+                          <span>{unit.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="permission-section">
+                    <strong>{profileForm.payload.role === "admin" ? "Admin possui acesso total" : "Permissoes do perfil"}</strong>
+                    {profileForm.payload.role !== "admin" && (
+                      <div className="permission-grid">
+                        {permissionGroups.map((permission) => (
+                          <label key={permission.key} className="permission-item">
+                            <span><b>{permission.label}</b><small>{permission.description}</small></span>
+                            <select value={(profileForm.payload.permissions || defaultPermissionSet)[permission.key] || "none"} onChange={(event) => setProfilePermission(permission.key, event.target.value as PermissionLevel)}>
+                              {permissionLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
+                            </select>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="profile-actions">
+                    {editingProfileId && <button type="button" onClick={resetProfileForm}>Cancelar edicao</button>}
+                    <button className="secondary-button" type="submit">{editingProfileId ? "Salvar perfil" : "Criar perfil"}</button>
+                  </div>
+                </form>
+
+                <div className="profile-list">
+                  {accessProfiles.map((profile) => (
+                    <article key={profileKey(profile)} className="profile-card">
+                      <div>
+                        <strong>{profile.title}</strong>
+                        <span>{profile.payload.role === "admin" ? "Admin - acesso total" : `${profile.payload.role === "tutor" ? "Tutor" : "Equipe"} - ${profile.payload.entities.map(unitTitle).join(", ")}`}</span>
+                      </div>
+                      <em>{profile.builtIn ? "Padrao" : "Personalizado"}</em>
+                      {!profile.builtIn && (
+                        <div>
+                          <button type="button" onClick={() => editAccessProfile(profile)}>Editar</button>
+                          <button type="button" className="danger-action" onClick={() => deleteAccessProfile(profile)}>Excluir</button>
+                        </div>
+                      )}
+                    </article>
                   ))}
                 </div>
-              </div>
+              </section>
 
-              <div className="permission-section">
-                <strong>Permissoes por area</strong>
-                <div className="permission-grid">
-                  {permissionGroups.map((permission) => (
-                    <label key={permission.key} className="permission-item">
-                      <span><b>{permission.label}</b><small>{permission.description}</small></span>
-                      <select value={(userForm.permissions || defaultPermissionSet)[permission.key] || "none"} disabled={userForm.role === "admin"} onChange={(event) => setUserFormPermission(permission.key, event.target.value as PermissionLevel)}>
-                        {permissionLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
-                      </select>
-                    </label>
-                  ))}
+              <section className="access-users-panel">
+                <div className="access-section-head">
+                  <div>
+                    <h2>Usuarios</h2>
+                    <p>Cadastre dados do usuario e atribua um perfil.</p>
+                  </div>
                 </div>
-              </div>
-              <button className="secondary-button">Cadastrar usuario</button>
-            </form>
+
+                <form className="user-permission-form" onSubmit={createAdminUser}>
+                  <div className="user-form-grid">
+                    <input required placeholder="Nome" value={userForm.name} onChange={(event) => setUserForm((current) => ({ ...current, name: event.target.value }))} />
+                    <input required type="email" placeholder="E-mail" value={userForm.email} onChange={(event) => setUserForm((current) => ({ ...current, email: event.target.value }))} />
+                    <input required type="password" placeholder="Senha temporaria" value={userForm.password} onChange={(event) => setUserForm((current) => ({ ...current, password: event.target.value }))} />
+                    <select value={selectedUserProfile} onChange={(event) => applyProfileToUserForm(event.target.value)}>
+                      {accessProfiles.map((profile) => <option key={profileKey(profile)} value={profileKey(profile)}>{profile.title}</option>)}
+                    </select>
+                  </div>
+                  <button className="secondary-button">Cadastrar usuario</button>
+                </form>
+              </section>
+            </div>
             {userMessage && <strong>{userMessage}</strong>}
             <div className="admin-list">
               {users.map((user) => (
                 <article className="reservation-row user-admin-row" key={user.id}>
                   <div className="user-admin-head">
                     <div><strong>{user.name}</strong><p>{user.email} - {user.is_active ? "ativo" : "inativo"}</p></div>
-                    <select value={user.role} onChange={(event) => updateAdminUser(user.id, { role: event.target.value as AppUser["role"], permissions: event.target.value === "admin" ? null : userPermissionSet(user) })}>
-                      <option value="admin">Admin</option>
-                      <option value="equipe">Equipe</option>
-                      <option value="tutor">Tutor</option>
+                    <select value={matchingProfileId(user, accessProfiles)} onChange={(event) => assignProfileToUser(user, event.target.value)}>
+                      <option value="custom" disabled>Perfil personalizado</option>
+                      {accessProfiles.map((profile) => <option key={profileKey(profile)} value={profileKey(profile)}>{profile.title}</option>)}
                     </select>
                     <button className={user.is_active ? "danger-action" : ""} onClick={() => updateAdminUser(user.id, { is_active: !user.is_active })}>{user.is_active ? "Desativar" : "Ativar"}</button>
                   </div>
-                  <div className="entity-checks compact">
-                    {businessUnits.map((unit) => {
-                      const checked = (user.entities || []).includes(unit.key);
-                      return (
-                        <label key={unit.key}>
-                          <input type="checkbox" checked={checked} disabled={user.role === "admin"} onChange={() => {
-                            const currentEntities = user.entities || [];
-                            const next = checked ? currentEntities.filter((item) => item !== unit.key) : [...currentEntities, unit.key];
-                            updateAdminUser(user.id, { entities: next.length ? next : [unit.key] });
-                          }} />
-                          <span>{unit.title}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div className="permission-grid compact">
-                    {permissionGroups.map((permission) => (
-                      <label key={permission.key} className="permission-item">
-                        <span><b>{permission.label}</b></span>
-                        <select value={user.role === "admin" ? "write" : userPermissionSet(user)[permission.key] || "none"} disabled={user.role === "admin"} onChange={(event) => updateAdminUser(user.id, { permissions: { ...userPermissionSet(user), [permission.key]: event.target.value as PermissionLevel } })}>
-                          {permissionLevels.map((level) => <option key={level.value} value={level.value}>{level.label}</option>)}
-                        </select>
-                      </label>
-                    ))}
+                  <div className="user-profile-summary">
+                    <span>{user.role === "admin" ? "Admin" : user.role === "tutor" ? "Tutor" : "Equipe"}</span>
+                    <span>{user.role === "admin" ? "Todas as entidades" : normalizeProfileEntities(user.entities).map(unitTitle).join(", ")}</span>
+                    <span>{matchingProfileId(user, accessProfiles) === "custom" ? "Permissoes personalizadas" : `Perfil: ${profileByKey(matchingProfileId(user, accessProfiles)).title}`}</span>
                   </div>
                 </article>
               ))}

@@ -5,7 +5,7 @@ import type { AdminRecordPayload, PermissionKey } from "@/lib/types";
 
 function recordPermission(moduleKey?: string): PermissionKey {
   if (moduleKey === "unit" || moduleKey === "communications" || moduleKey === "general_settings") return "settings";
-  if (moduleKey === "schedules") return "users";
+  if (moduleKey === "schedules" || moduleKey === "access_profiles") return "users";
   if (moduleKey === "services" || moduleKey === "packages" || moduleKey === "daily_reports" || moduleKey === "activities" || moduleKey === "feeding") return moduleKey;
   return "reports";
 }
