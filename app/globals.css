@@ -4496,25 +4496,27 @@ body:has(.prelogin-app-page) {
 .prelogin-quick-actions .yellow { color: #3b2800; background: #f8c02c; }
 .prelogin-quick-actions .green { background: #25d366; }
 
-.prelogin-visit-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 22px;
-  background: rgba(15, 23, 42, .38);
-  backdrop-filter: blur(8px);
-}
+  .prelogin-visit-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(15, 23, 42, .38);
+    backdrop-filter: blur(8px);
+  }
 
-.prelogin-visit-modal {
-  position: relative;
-  width: min(100%, 332px);
-  border-radius: 28px;
-  padding: 28px 20px 20px;
-  color: #0f172a;
-  background: #fff;
-  box-shadow: 0 22px 48px rgba(15, 23, 42, .22);
+  .prelogin-visit-modal {
+    position: relative;
+    width: min(100%, 332px);
+    max-width: calc(100vw - 36px);
+    overflow-x: hidden;
+    border-radius: 28px;
+    padding: 28px 20px 20px;
+    color: #0f172a;
+    background: #fff;
+    box-shadow: 0 22px 48px rgba(15, 23, 42, .22);
 }
 
 .prelogin-visit-close {
@@ -4569,6 +4571,7 @@ body:has(.prelogin-app-page) {
 .prelogin-visit-form,
 .prelogin-visit-form label {
   display: grid;
+  min-width: 0;
 }
 
 .prelogin-visit-form {
@@ -4591,6 +4594,8 @@ body:has(.prelogin-app-page) {
 .prelogin-visit-form select,
 .prelogin-visit-form textarea {
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 38px;
   border: 1px solid #dfe7f0;
   border-radius: 12px;
@@ -4628,6 +4633,7 @@ body:has(.prelogin-app-page) {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   gap: 10px;
+  min-width: 0;
 }
 
 .prelogin-visit-form fieldset {
@@ -8594,6 +8600,26 @@ body:has(.prelogin-app-page) {
     display: none;
   }
 
+  .reservation-modal,
+  .checkin-detail-modal {
+    width: min(430px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
+    grid-template-columns: minmax(0, 1fr);
+    overflow-x: hidden;
+  }
+
+  .reservation-modal label,
+  .reservation-modal input,
+  .reservation-modal select,
+  .reservation-modal textarea,
+  .checkin-detail-modal label,
+  .checkin-detail-modal input,
+  .checkin-detail-modal select,
+  .checkin-detail-modal textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   .admin-quick-checkin-backdrop {
     position: fixed;
     inset: 0;
@@ -8607,14 +8633,21 @@ body:has(.prelogin-app-page) {
 
   .admin-quick-checkin-modal {
     width: min(430px, 100%);
+    max-width: calc(100vw - 28px);
     max-height: calc(100vh - 126px);
     margin: 0 auto;
+    overflow-x: hidden;
     overflow-y: auto;
     border: 1px solid rgba(231, 238, 247, .92);
     border-radius: 28px;
     padding: 18px;
     background: #fff;
     box-shadow: 0 26px 68px rgba(7, 29, 58, .24);
+  }
+
+  .admin-quick-checkin-modal,
+  .admin-quick-checkin-modal * {
+    min-width: 0;
   }
 
   .admin-quick-checkin-head {
@@ -8669,9 +8702,13 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-checkin-list > button {
+    width: 100%;
     min-height: 72px;
     display: grid;
-    grid-template-columns: 47px 44px minmax(0, 1fr) auto;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-areas:
+      "avatar info"
+      "time meta";
     align-items: center;
     gap: 10px;
     border: 1px solid #edf1f7;
@@ -8691,12 +8728,15 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-checkin-list time {
+    grid-area: time;
+    justify-self: center;
     color: #009f98;
     font-size: 13px;
     font-weight: 900;
   }
 
   .admin-quick-checkin-list i {
+    grid-area: avatar;
     width: 44px;
     height: 44px;
     display: grid;
@@ -8708,6 +8748,10 @@ body:has(.prelogin-app-page) {
     box-shadow: 0 10px 18px rgba(24, 185, 177, .2);
     font-style: normal;
     font-weight: 900;
+  }
+
+  .admin-quick-checkin-list > button > span {
+    grid-area: info;
   }
 
   .admin-quick-checkin-list strong,
@@ -8731,6 +8775,8 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-checkin-list em {
+    grid-area: meta;
+    justify-self: start;
     border-radius: 999px;
     padding: 7px 10px;
     color: #009f98;
@@ -8798,8 +8844,8 @@ body:has(.prelogin-app-page) {
 
   .admin-quick-readonly dl div {
     display: grid;
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 10px;
+    grid-template-columns: 1fr;
+    gap: 4px;
     border-radius: 13px;
     padding: 9px 10px;
     background: #fff;
@@ -8849,9 +8895,13 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-pet-list > button {
+    width: 100%;
     min-height: 64px;
     display: grid;
-    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-areas:
+      "avatar info"
+      "avatar meta";
     align-items: center;
     gap: 10px;
     border: 1px solid #edf1f7;
@@ -8864,6 +8914,7 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-pet-list i {
+    grid-area: avatar;
     width: 44px;
     height: 44px;
     display: grid;
@@ -8873,6 +8924,10 @@ body:has(.prelogin-app-page) {
     background: linear-gradient(135deg, #18b9b1, #8f5fe8);
     font-style: normal;
     font-weight: 900;
+  }
+
+  .admin-quick-pet-list > button > span {
+    grid-area: info;
   }
 
   .admin-quick-pet-list strong,
@@ -8895,6 +8950,8 @@ body:has(.prelogin-app-page) {
   }
 
   .admin-quick-pet-list em {
+    grid-area: meta;
+    justify-self: start;
     border-radius: 999px;
     padding: 7px 10px;
     color: #009f98;
