@@ -4566,7 +4566,8 @@ body:has(.prelogin-app-page) {
 }
 
 .prelogin-visit-form input,
-.prelogin-visit-form select {
+.prelogin-visit-form select,
+.prelogin-visit-form textarea {
   width: 100%;
   min-height: 38px;
   border: 1px solid #dfe7f0;
@@ -4582,14 +4583,23 @@ body:has(.prelogin-app-page) {
 }
 
 .prelogin-visit-form input:focus,
-.prelogin-visit-form select:focus {
+.prelogin-visit-form select:focus,
+.prelogin-visit-form textarea:focus {
   border-color: #0ca5a8;
   background: #fff;
   box-shadow: 0 0 0 3px rgba(12, 165, 168, .13);
 }
 
-.prelogin-visit-form input::placeholder {
+.prelogin-visit-form input::placeholder,
+.prelogin-visit-form textarea::placeholder {
   color: #8a95a5;
+}
+
+.prelogin-visit-form textarea {
+  min-height: 72px;
+  resize: none;
+  padding-top: 11px;
+  line-height: 1.35;
 }
 
 .prelogin-visit-row {

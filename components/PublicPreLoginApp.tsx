@@ -97,6 +97,7 @@ export function PublicPreLoginApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [favorite, setFavorite] = useState(false);
   const [visitModalOpen, setVisitModalOpen] = useState(false);
+  const [reservationModalOpen, setReservationModalOpen] = useState(false);
 
   const openTab = (id: string) => {
     setActiveTab(id);
@@ -117,6 +118,23 @@ export function PublicPreLoginApp() {
 
     window.open(`https://wa.me/5511984130296?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
     setVisitModalOpen(false);
+  };
+
+  const submitReservation = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const message = [
+      "Ola! Quero fazer uma reserva na Scolt&Cia.",
+      `Pet: ${data.get("petName")}`,
+      `Tutor: ${data.get("ownerName")}`,
+      `Servico: ${data.get("service")}`,
+      `Entrada: ${data.get("startDate")} as ${data.get("startTime")}`,
+      `Saida: ${data.get("endDate") || "A combinar"}`,
+      `Observacoes: ${data.get("notes") || "Nenhuma"}`
+    ].join("\n");
+
+    window.open(`https://wa.me/5511984130296?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    setReservationModalOpen(false);
   };
 
   return (
@@ -195,7 +213,7 @@ export function PublicPreLoginApp() {
 
                   <div className="prelogin-quick-actions">
                     <button className="teal" type="button" onClick={() => setVisitModalOpen(true)}><CalendarDays size={18} /> Agendar visita</button>
-                    <Link className="yellow" href="/reserva"><PawPrint size={18} /> Fazer reserva</Link>
+                    <button className="yellow" type="button" onClick={() => setReservationModalOpen(true)}><PawPrint size={18} /> Fazer reserva</button>
                     <a className="green" href="https://wa.me/5511984130296"><MessageCircle size={18} /> WhatsApp</a>
                   </div>
 
@@ -337,6 +355,69 @@ export function PublicPreLoginApp() {
                     </fieldset>
 
                     <button className="prelogin-visit-submit" type="submit">Confirmar Agendamento</button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
+
+            {reservationModalOpen ? (
+              <div className="prelogin-visit-overlay" role="dialog" aria-modal="true" aria-labelledby="reservation-modal-title">
+                <div className="prelogin-visit-modal prelogin-reservation-modal">
+                  <button className="prelogin-visit-close" type="button" onClick={() => setReservationModalOpen(false)} aria-label="Fechar reserva">
+                    <X size={20} />
+                  </button>
+                  <h2 id="reservation-modal-title">Fazer Reserva</h2>
+                  <p>Preencha os dados principais para nossa equipe confirmar a disponibilidade.</p>
+
+                  <form className="prelogin-visit-form" onSubmit={submitReservation}>
+                    <label>
+                      <span>Nome do Pet</span>
+                      <input name="petName" placeholder="Ex: Scolt, Pipoca, Amora" required />
+                    </label>
+                    <label>
+                      <span>Seu Nome</span>
+                      <input name="ownerName" placeholder="Ex: Lucas Pedroso" required />
+                    </label>
+
+                    <label>
+                      <span>Servico</span>
+                      <select name="service" defaultValue="Day Care" required>
+                        <option value="Day Care">Day Care</option>
+                        <option value="Hospedagem">Hospedagem</option>
+                        <option value="Banho e Tosa">Banho e Tosa</option>
+                      </select>
+                    </label>
+
+                    <div className="prelogin-visit-row">
+                      <label>
+                        <span>Entrada</span>
+                        <input name="startDate" type="date" required />
+                      </label>
+                      <label>
+                        <span>Horario</span>
+                        <select name="startTime" defaultValue="" required>
+                          <option value="" disabled>Selecione...</option>
+                          <option value="08:00">08:00</option>
+                          <option value="09:00">09:00</option>
+                          <option value="10:00">10:00</option>
+                          <option value="14:00">14:00</option>
+                          <option value="15:00">15:00</option>
+                          <option value="16:00">16:00</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label>
+                      <span>Saida</span>
+                      <input name="endDate" type="date" />
+                    </label>
+
+                    <label>
+                      <span>Observacoes</span>
+                      <textarea name="notes" placeholder="Ex: alimentacao, comportamento, restricoes..." rows={3} />
+                    </label>
+
+                    <button className="prelogin-visit-submit" type="submit">Confirmar Reserva</button>
                   </form>
                 </div>
               </div>
