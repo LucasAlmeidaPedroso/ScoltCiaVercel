@@ -1300,6 +1300,7 @@ type AdminReservationsPageProps = {
   pendingCount: number;
   initialStatus: string;
   initialService?: string;
+  openCreateSignal?: number;
   businessUnit: BusinessUnit;
   title?: string;
   description?: string;
@@ -1715,7 +1716,7 @@ function AdminCheckinPage({ reservations, maxCapacity, pendingCount, businessUni
   );
 }
 
-function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", businessUnit, title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
+function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, pendingCount, initialStatus, initialService = "all", openCreateSignal = 0, businessUnit, title = "Reservas", description = "Gerencie todas as reservas de Day Care, Hospedagem, Banho e Tosa e muito mais.", onPatch, onCreate }: AdminReservationsPageProps) {
   const [query, setQuery] = useState("");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -1819,6 +1820,10 @@ function AdminReservationsPage({ reservations, pets, selectedId, setSelectedId, 
       notes: ""
     });
   }
+
+  useEffect(() => {
+    if (openCreateSignal > 0) openCreate();
+  }, [openCreateSignal]);
 
   function applyCreatePet(petId: string) {
     setSelectedCreatePetId(petId);
@@ -2358,6 +2363,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
   const [userMessage, setUserMessage] = useState("");
   const [maxCapacity] = useState(settings.max_capacity);
   const [adminLoadingLabel, setAdminLoadingLabel] = useState("");
+  const [reservationCreateSignal, setReservationCreateSignal] = useState(0);
   const loadingTimerRef = useRef<number>();
   const tutors = useMemo(() => buildTutors(petItems, items, [...allTutors, ...extraTutors]), [petItems, items, allTutors, extraTutors]);
   const operationalItems = useMemo(() => items.filter((item) => reservationVisibleInUnit(item, activeUnit)), [items, activeUnit]);
@@ -2452,6 +2458,16 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
 
   function openModule(page: AdminModulePageKey) {
     goAdminPage(page, "Carregando modulo...");
+  }
+
+  function openNewReservationShortcut() {
+    if (currentUser && !canRead(currentUser, "reservations")) {
+      showAdminLoading("Sem permissao para criar reservas.");
+      return;
+    }
+    setReservationInitialStatus("all");
+    goAdminPage("reservations", "Abrindo nova reserva...");
+    setReservationCreateSignal((current) => current + 1);
   }
 
   async function loadAdminRecords(headers = adminHeaders()) {
@@ -2976,6 +2992,39 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
         </div>
       </aside>
 
+      <header className="admin-mobile-appbar">
+        <button type="button" className="admin-mobile-icon-btn" onClick={() => goAdminPage("dashboard", "Carregando inicio...")} aria-label="Inicio">
+          <LayoutDashboard size={20} />
+        </button>
+        <div className="admin-mobile-brand">
+          <Image src="/img/logo-scolt-cia.png" alt="Scolt&Cia" width={46} height={46} />
+          <div>
+            <strong>Bom dia, {adminName}!</strong>
+            <span>{unitTitle(activeUnit)} em operacao</span>
+          </div>
+        </div>
+        <div className="admin-mobile-actions">
+          <AdminNotificationBell reservations={operationalItems} fallbackCount={countByStatus("Aguardando aprovacao")} />
+          <button type="button" className="admin-mobile-avatar" onClick={logoutAdmin} aria-label="Sair">{adminName.slice(0, 1)}</button>
+        </div>
+      </header>
+
+      <div className="admin-mobile-unit-switch" role="tablist" aria-label="Entidade administrativa">
+        {businessUnits.filter((unit) => canUseUnit(currentUser, unit.key)).map((unit) => (
+          <button key={unit.key} type="button" role="tab" className={activeUnit === unit.key ? "active" : ""} onClick={() => switchBusinessUnit(unit.key)} aria-selected={activeUnit === unit.key}>
+            {unit.shortTitle}
+          </button>
+        ))}
+      </div>
+
+      <nav className="admin-mobile-bottom-nav" aria-label="Menu rapido da administracao">
+        {canRead(currentUser, "dashboard") && <button type="button" className={adminPage === "dashboard" ? "active" : ""} onClick={() => goAdminPage("dashboard", "Carregando inicio...")}><Home size={20} /><span>Inicio</span></button>}
+        {canRead(currentUser, "agenda") && <button type="button" className={adminPage === "agenda" ? "active" : ""} onClick={() => goAdminPage("agenda", "Carregando agenda...")}><CalendarDays size={20} /><span>Agenda</span></button>}
+        {canRead(currentUser, "checkin") && <button type="button" className={`admin-mobile-paw ${adminPage === "checkin" ? "active" : ""}`} onClick={() => goAdminPage("checkin", "Abrindo check-in...")} aria-label="Check-in dos dogs cadastrados"><PawPrint size={30} /><span>Check-in</span></button>}
+        {canRead(currentUser, "settings") && <button type="button" className={adminPage === "communications" ? "active" : ""} onClick={() => openModule("communications")}><Mail size={20} /><span>Mensagens</span></button>}
+        {canRead(currentUser, "reservations") && <button type="button" className={adminPage === "reservations" ? "active" : ""} onClick={openNewReservationShortcut}><Plus size={20} /><span>Reserva</span></button>}
+      </nav>
+
       {adminPage === "dashboard" && (
         <AdminDashboardHome
           reservations={operationalItems}
@@ -3025,6 +3074,7 @@ export function AdminPanel({ pets, reservations, settings }: Props) {
           setSelectedId={setSelectedId}
           pendingCount={countByStatus("Aguardando aprovacao")}
           initialStatus={reservationInitialStatus}
+          openCreateSignal={reservationCreateSignal}
           businessUnit={activeUnit}
           onPatch={updateReservationFields}
           onCreate={createReservationFields}
