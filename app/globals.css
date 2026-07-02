@@ -4467,24 +4467,196 @@ body:has(.prelogin-app-page) {
   gap: 8px;
 }
 
-.prelogin-quick-actions a {
+.prelogin-quick-actions a,
+.prelogin-quick-actions button {
   min-height: 72px;
   display: grid;
   align-content: center;
   justify-items: center;
   gap: 5px;
+  border: 0;
   border-radius: 12px;
   padding: 11px 6px;
   color: #fff;
+  background: none;
+  font: inherit;
   font-size: 11px;
   font-weight: 900;
   text-align: center;
   box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+  cursor: pointer;
 }
 
 .prelogin-quick-actions .teal { background: #0ca5a8; }
 .prelogin-quick-actions .yellow { color: #3b2800; background: #f8c02c; }
 .prelogin-quick-actions .green { background: #25d366; }
+
+.prelogin-visit-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, .38);
+  backdrop-filter: blur(8px);
+}
+
+.prelogin-visit-modal {
+  position: relative;
+  width: min(100%, 332px);
+  border-radius: 28px;
+  padding: 28px 20px 20px;
+  color: #0f172a;
+  background: #fff;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, .22);
+}
+
+.prelogin-visit-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #087d80;
+  background: #e6f9f7;
+  cursor: pointer;
+}
+
+.prelogin-visit-modal h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 900;
+}
+
+.prelogin-visit-modal > p {
+  max-width: 250px;
+  margin: 6px 0 18px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.prelogin-visit-form,
+.prelogin-visit-form label {
+  display: grid;
+}
+
+.prelogin-visit-form {
+  gap: 12px;
+}
+
+.prelogin-visit-form label {
+  gap: 7px;
+}
+
+.prelogin-visit-form label > span,
+.prelogin-visit-form legend {
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.prelogin-visit-form input,
+.prelogin-visit-form select {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #dfe7f0;
+  border-radius: 12px;
+  padding: 0 14px;
+  color: #0f172a;
+  background: #fbfcfe;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(15, 23, 42, .02);
+}
+
+.prelogin-visit-form input:focus,
+.prelogin-visit-form select:focus {
+  border-color: #0ca5a8;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(12, 165, 168, .13);
+}
+
+.prelogin-visit-form input::placeholder {
+  color: #8a95a5;
+}
+
+.prelogin-visit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.prelogin-visit-form fieldset {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.prelogin-visit-form legend {
+  grid-column: 1 / -1;
+  margin-bottom: 1px;
+}
+
+.prelogin-visit-form fieldset label {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.prelogin-visit-form fieldset input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.prelogin-visit-form fieldset span {
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dfe7f0;
+  border-radius: 999px;
+  color: #64748b;
+  background: #fbfcfe;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.prelogin-visit-form fieldset input:checked + span {
+  border-color: #0ca5a8;
+  color: #07797b;
+  background: #e6f9f7;
+  box-shadow: 0 0 0 2px rgba(12, 165, 168, .08);
+}
+
+.prelogin-visit-submit {
+  min-height: 44px;
+  margin-top: 4px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #18b9b1, #0ca5a8);
+  box-shadow: 0 12px 24px rgba(12, 165, 168, .22);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
 
 .prelogin-diff-panel,
 .prelogin-about-card,

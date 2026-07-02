@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
   Bell,
   CalendarDays,
@@ -96,10 +96,27 @@ export function PublicPreLoginApp() {
   const [activeTab, setActiveTab] = useState("home");
   const [menuOpen, setMenuOpen] = useState(false);
   const [favorite, setFavorite] = useState(false);
+  const [visitModalOpen, setVisitModalOpen] = useState(false);
 
   const openTab = (id: string) => {
     setActiveTab(id);
     setMenuOpen(false);
+  };
+
+  const submitVisit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    const message = [
+      "Ola! Quero agendar uma visita na Scolt&Cia.",
+      `Pet: ${data.get("petName")}`,
+      `Tutor: ${data.get("ownerName")}`,
+      `Data: ${data.get("visitDate")}`,
+      `Horario: ${data.get("visitTime")}`,
+      `Interesse: ${data.get("interest")}`
+    ].join("\n");
+
+    window.open(`https://wa.me/5511984130296?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+    setVisitModalOpen(false);
   };
 
   return (
@@ -177,7 +194,7 @@ export function PublicPreLoginApp() {
                   </div>
 
                   <div className="prelogin-quick-actions">
-                    <Link className="teal" href="/contato"><CalendarDays size={18} /> Agendar visita</Link>
+                    <button className="teal" type="button" onClick={() => setVisitModalOpen(true)}><CalendarDays size={18} /> Agendar visita</button>
                     <Link className="yellow" href="/reserva"><PawPrint size={18} /> Fazer reserva</Link>
                     <a className="green" href="https://wa.me/5511984130296"><MessageCircle size={18} /> WhatsApp</a>
                   </div>
@@ -264,6 +281,66 @@ export function PublicPreLoginApp() {
                 </section>
               )}
             </div>
+
+            {visitModalOpen ? (
+              <div className="prelogin-visit-overlay" role="dialog" aria-modal="true" aria-labelledby="visit-modal-title">
+                <div className="prelogin-visit-modal">
+                  <button className="prelogin-visit-close" type="button" onClick={() => setVisitModalOpen(false)} aria-label="Fechar agendamento">
+                    <X size={20} />
+                  </button>
+                  <h2 id="visit-modal-title">Agendar uma Visita</h2>
+                  <p>Escolha o melhor dia e horario para vir conhecer a Scolt&Cia!</p>
+
+                  <form className="prelogin-visit-form" onSubmit={submitVisit}>
+                    <label>
+                      <span>Nome do Pet</span>
+                      <input name="petName" placeholder="Ex: Scolt, Pipoca, Amora" required />
+                    </label>
+                    <label>
+                      <span>Seu Nome</span>
+                      <input name="ownerName" placeholder="Ex: Lucas Pedroso" required />
+                    </label>
+
+                    <div className="prelogin-visit-row">
+                      <label>
+                        <span>Data</span>
+                        <input name="visitDate" type="date" required />
+                      </label>
+                      <label>
+                        <span>Horario</span>
+                        <select name="visitTime" defaultValue="" required>
+                          <option value="" disabled>Selecione...</option>
+                          <option value="08:00">08:00</option>
+                          <option value="09:00">09:00</option>
+                          <option value="10:00">10:00</option>
+                          <option value="14:00">14:00</option>
+                          <option value="15:00">15:00</option>
+                          <option value="16:00">16:00</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <fieldset>
+                      <legend>Servico de maior interesse</legend>
+                      <label>
+                        <input type="radio" name="interest" value="Daycare" defaultChecked />
+                        <span>Daycare</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="interest" value="Hospedagem" />
+                        <span>Hospedagem</span>
+                      </label>
+                      <label>
+                        <input type="radio" name="interest" value="Ambos" />
+                        <span>Ambos</span>
+                      </label>
+                    </fieldset>
+
+                    <button className="prelogin-visit-submit" type="submit">Confirmar Agendamento</button>
+                  </form>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </section>
